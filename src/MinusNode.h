@@ -11,7 +11,7 @@ private:
         }
         else{
             // (1 * x + 0)/(0 * x + 0)
-            lin_frac = LinearFractional(1, x, 0, 0);
+            lin_frac = LinearFractional(1, x, 0, 1);
         }
     }
 
@@ -21,7 +21,7 @@ private:
         }
         else{
             // (1 * -x + 0)/(0 * x + 0)
-            lin_frac = LinearFractional(1, -x, 0, 0);
+            lin_frac = LinearFractional(1, -x, 0, 1);
         }
     }
 
