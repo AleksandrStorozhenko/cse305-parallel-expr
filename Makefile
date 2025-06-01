@@ -10,8 +10,8 @@ endif
 # Compiler and default flags
 
 CXX = g++
-CFLAGS = -pthread -std=c++14 -Wall
-RELEASE_FLAGS = -pthread -std=c++14 -Wall -DNDEBUG -O2
+CFLAGS = -pthread -std=c++17 -Wall
+RELEASE_FLAGS = -pthread -std=c++17 -Wall -DNDEBUG -O2
 
 # Directories
 SRCDIR   = src

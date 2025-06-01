@@ -8,6 +8,7 @@
 #include <mutex>
 #include <atomic>
 #include <thread>
+#include<optional>
 
 class TreeContraction;
 
@@ -31,7 +32,7 @@ protected:
     
     bool is_left{false};
     LinearFractional lin_frac;
-    double value;
+    std::optional<double> value;
 public:
     
     Node() : parent(nullptr), left(nullptr), right(nullptr), num_children(0) {}
@@ -86,7 +87,7 @@ public:
                 parent->on_rake_left(value);
             else
                 parent->on_rake_right(value);
-                
+
             parent->num_children --;
             delete this;
         }
