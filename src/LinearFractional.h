@@ -13,7 +13,7 @@ private:
     // x -> a * x + b / (c * x + d)
 
 public:
-    LinearFractional() : a(0), b(0), c(0), d(0) {} // this implies it is not yet set
+    LinearFractional() : a(0), b(0), c(0), d(0) {} // this implies it is not set yet
     LinearFractional(double _a, double _b, double _c, double _d) : a(_a), b(_b), c(_c), d(_d) {}
 
     double eval(double x) {
@@ -24,7 +24,7 @@ public:
 
     LinearFractional compose(const LinearFractional& other){
         return LinearFractional(a * other.a + b * other.c,  a * other.b + b * other.d,
-                                c * other.a + d * other.c,  c * other.b + d * other.d)
+                                c * other.a + d * other.c,  c * other.b + d * other.d);
     } 
 };
 

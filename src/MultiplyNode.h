@@ -5,14 +5,12 @@
 
 class MultiplyNode: public Node {
 public:
-    MultiplyNode(Node* left, Node* right) : Node(left, right) { }
-
-    double compute(){
-        double multiply = 1;
-        for(auto& son: sons){
-            multiply *= son->compute();
-        }
-        return multiply;
+    MultiplyNode(Node* l, Node* r) : Node(l, r) {}
+    double compute() override
+    {
+        double prod = 1;
+        for (auto* c : children()) prod *= c->compute();
+        return prod;
     }
 };
 

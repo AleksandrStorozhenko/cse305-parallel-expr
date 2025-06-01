@@ -9,66 +9,100 @@
 #include <functional>
 #include <atomic>
 
-class ThreadPool {
-public:
-    explicit ThreadPool(std::size_t nThreads) {
-        nThreads = nThreads ? nThreads : 1;
-        for (std::size_t i = 0; i < nThreads; ++i)
-            workers_.emplace_back([this]{ worker(); });
-    }
-
-    ~ThreadPool() {
-        {
-            std::lock_guard<std::mutex> lk(m_);
-            stop_ = true;
-        }
-        cv_.notify_all();
-        for (auto& t : workers_) t.join();
-    }
-
-    bool enqueue(const std::function<void()>& job) {
-        std::lock_guard<std::mutex> lk(m_);
-        if (stop_) return false;
-        q_.push(job);
-        cv_.notify_one();
-        return true;
-    }
-
-    void wait_idle() {
-        std::unique_lock<std::mutex> lk(m_);
-        idleCv_.wait(lk, [this]{ return q_.empty() && active_ == 0; });
-    }
-
-    ThreadPool(const ThreadPool&) = delete;
-    ThreadPool& operator=(const ThreadPool&) = delete;
-
-private:
-    void worker() {
-        for (;;) {
-            std::function<void()> job;
-            {
-                std::unique_lock<std::mutex> lk(m_);
-                cv_.wait(lk, [this]{ return stop_ || !q_.empty(); });
-                if (stop_ && q_.empty()) return;
-                job = std::move(q_.front());
-                q_.pop();
-                ++active_;
-            }
-            job();
-            {
-                std::lock_guard<std::mutex> lk(m_);
-                --active_;
-                if (q_.empty() && active_ == 0) idleCv_.notify_all();
-            }
-        }
-    }
-
-    std::vector<std::thread> workers_;
-    std::queue<std::function<void()>> q_;
-    std::mutex m_;
-    std::condition_variable cv_, idleCv_;
-    std::atomic<std::size_t> active_{0};
-    bool stop_{false};
+template <class E> 
+class SafeUnboundedQueue {
+        std::queue<E> elements;
+        std::mutex lock;
+        std::condition_variable not_empty;
+    public: 
+        SafeUnboundedQueue<E>(){}
+        void push(const E& element);
+        E pop ();
+        bool is_empty() const {return this->elements.empty();}
 };
+
+template <class E>
+void SafeUnboundedQueue<E>::push(const E& element) {
+    std::lock_guard<std::mutex> lk(lock);
+    bool wasEmpty = is_empty();
+    elements.push(element);
+    if(wasEmpty){
+        not_empty.notify_all();
+    }
+}
+
+template <class E> 
+E SafeUnboundedQueue<E>::pop() {
+    std::unique_lock<std::mutex> lk(lock);
+    while(is_empty()){
+        not_empty.wait(lk);
+    }
+    auto elt = elements.front();
+    elements.pop();
+    return elt;
+}
+
+//TODO: add timing to pool
+class SimplePool {
+        unsigned int num_workers;
+        std::vector<std::thread> workers;
+        SafeUnboundedQueue<std::function<bool()> > tasks;
+        
+        void do_work();
+        // create workers: workers[i] = std::thread(&do_work)
+    public:
+        SimplePool(unsigned int num_workers = 0);
+        ~SimplePool();
+        template <class F, class... Args>
+        void push(F f, Args ... args);
+        void stop();
+};
+
+void SimplePool::do_work() {
+    bool should_continue = true;
+    while(should_continue){
+        auto task = tasks.pop();
+        // std::cout<<"Thread new task taken"<<std::endl;
+
+        should_continue = task();
+    }
+    // std::cout<<"Thread stopping."<<std::endl;
+
+}
+
+SimplePool::SimplePool(unsigned int num_workers) {
+    this->num_workers = num_workers;
+    for(int i = 0; i < num_workers; i++){
+        workers.emplace_back(&SimplePool::do_work, this);
+    }
+}
+
+SimplePool::~SimplePool() {
+    stop();
+}
+
+template <class F, class... Args>
+void SimplePool::push(F f, Args ... args) {
+    // std::cout<<"Simple pool push called"<<std::endl;
+    tasks.push([f, args...]() -> bool {
+        f(args...);
+        return true;
+    });
+}
+
+void SimplePool::stop() {
+    // std::cout<<"Simple pool stop called"<<std::endl;
+
+    for(int i = 0; i < num_workers; i++){
+        tasks.push([]() -> bool {return false;});
+    }
+    // std::cout<<"Threads pushed stop."<<std::endl;
+
+    for(int i = 0; i < num_workers; i++){   
+        if(workers[i].joinable())  
+            workers[i].join();
+        // std::cout<<"Thread "<<i<<" stopped.";    
+    }
+}
 
 #endif
