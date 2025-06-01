@@ -13,6 +13,12 @@ class TreeContraction;
 
 class Node
 {
+private:
+//for some operations (eg division) order matters
+//moreover, invariant is: lock is held when called
+    virtual void on_rake_left(double val) = 0;
+    virtual void on_rake_right(double val) = 0;
+
 
 protected:
     Node* parent;
@@ -65,26 +71,6 @@ public:
         return c;
     }
     
-    // void removeChild(Node* child)
-    // {
-    //     children.erase(std::remove(children.begin(), children.end(), child),
-    //     children.end());
-    // }
-
-    // void replaceChild(Node* oldChild, Node* newChild)
-    // {
-    //     for (auto& c : children)
-    //     {
-    //         if (c == oldChild)
-    //         {
-    //             c = newChild;
-    //             if (newChild) newChild->parent = this;
-    //             if (oldChild) oldChild->parent = nullptr;
-    //             return;
-    //         }
-    //     }
-    // }
-
     void contract(){
         //root can NOT be invalidated 
 
@@ -100,50 +86,40 @@ public:
                 parent->on_rake_left(value);
             else
                 parent->on_rake_right(value);
+                
+            parent->num_children --;
             delete this;
         }
         else if(num_children == 1 && parent){
+            auto son = children()[0];
+            //to avoid deadlock
+            lk_self.unlock();
+            std::unique_lock<std::mutex> lk_par(parent->mutex, std::defer_lock);
+            std::unique_lock<std::mutex> lk_son(son->mutex, std::defer_lock);
 
-            std::unique_lock<std::mutex> lk_par(parent->mutex);
+            std::lock(lk_self, lk_par, lk_son);
 
             if(parent->num_children == 1){
                 //contract
                 parent->lin_frac = parent->lin_frac.compose(lin_frac);
-
-                if(parent->parent == nullptr){
-                    //parent is root
-                    //disconnect & delete
-                    parent->left = parent->right = nullptr;
-                    delete parent;
-
-                    parent = nullptr;
+                
+                if(is_left){
+                    parent->left = son;
+                    son->is_left = true;
                 }
                 else{
-                    //parent is not root;
-                    std::lock_guard<std::mutex> lk_great_par(parent->parent->mutex);
-                    auto great_par = parent->parent;
-
-                    if(parent->is_left){
-                        great_par->left = this;
-                    }
-                    else{
-                        great_par->right = this;
-                    }
-
-                    //disconnect & delete
-                    parent->left = parent->right = nullptr;
-                    delete parent;
-
-                    parent = great_par;
+                    parent->right = son;
+                    son->is_left = false;
                 }
+                son->parent = parent;
+
+                //disconnect & delete
+                left = right = nullptr;
+                delete this;
             }
         }
     }
-
-    //for some operations (eg division) order matters
-    virtual void on_rake_left(double val) = 0;
-    virtual void on_rake_right(double val) = 0;
-
+    
     virtual double compute() = 0;
 };
 

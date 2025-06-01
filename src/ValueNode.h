@@ -4,6 +4,10 @@
 #include "Node.h"
 
 class ValueNode: public Node {
+private:
+    void on_rake_left(double x){}
+    void on_rake_right(double x){}
+
 public:
     
     ValueNode(double _value) : Node(){
@@ -17,6 +21,7 @@ public:
     double compute(){
         return value;
     }
+
 };
 
 #endif

@@ -26,6 +26,8 @@ public:
         return LinearFractional(a * other.a + b * other.c,  a * other.b + b * other.d,
                                 c * other.a + d * other.c,  c * other.b + d * other.d);
     } 
+
+    bool was_set() {return a != 0 || b != 0 || c != 0  || d != 0;}
 };
 
 
