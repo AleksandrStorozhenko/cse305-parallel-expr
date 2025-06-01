@@ -112,13 +112,14 @@ namespace bench
 
     inline Node* accordion(unsigned depth, std::mt19937& g, bool mixOps = true, char fixedOp = '+')
     {
-        if (depth == 0) return new ValueNode(randLeaf(g));
-        if (depth % 2 == 0)
-            return perfectBin(1, g, mixOps, fixedOp);
-        return makeOp(mixOps ? pickOp(g) : fixedOp,
-                    accordion(depth-1, g, mixOps, fixedOp),
-                    new ValueNode(randLeaf(g)));
+        // bottom up
+        if (depth == 0)
+            return new ValueNode(randLeaf(g));
+        Node* rest = accordion(depth - 1, g, mixOps, fixedOp);
+        Node* heavy = (depth % 2 == 0) ? perfectBin(1, g, mixOps, fixedOp) : new ValueNode(randLeaf(g));
+        return makeOp(mixOps ? pickOp(g) : fixedOp, rest, heavy);
     }
+
 
 }
 #endif
