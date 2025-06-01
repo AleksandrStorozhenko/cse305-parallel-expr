@@ -64,31 +64,32 @@ int main(int argc, char* argv[])
 
     auto run_case = [&](const std::string& shape, std::size_t n_nodes, auto maker, auto param, unsigned threads, unsigned long seed)
     {
-        double baselineVal = 0.0, base_sum = 0.0;
+        std::vector<double> baselineVals(REPS);
+    
+        double base_sum = 0.0;
         for (int i = 0; i < REPS; ++i) {
             std::mt19937 gi(seed + i);
             Node* tmp = maker(param, gi, true, '+');
-            base_sum += time_ms([&]{ baselineVal = tmp->compute(); });
+            double val = 0.0;
+            base_sum += time_ms([&]{ val = tmp->compute(); });
+            baselineVals[i] = val;
             delete tmp;
         }
         double base_ms = base_sum / REPS;
-        
-        double contractionVal = 0.0, contr_sum = 0.0;
+    
+        double contr_sum = 0.0;
         for (int i = 0; i < REPS; ++i) {
             std::mt19937 gi(seed + i);
-            Node* tmp = maker(param, gi, true, '+'); // TreeContraction will free tmp
-            contr_sum += time_ms([&]{
-                contractionVal = TreeContraction(tmp, threads);
-            });
+            Node* tmp = maker(param, gi, true, '+');
+            double val = 0.0;
+            contr_sum += time_ms([&]{ val = TreeContraction(tmp, threads); });
+            assert(std::fabs(baselineVals[i] - val) < 1e-9);
         }
         double contr_ms = contr_sum / REPS;
-           
-
-        assert(std::fabs(baselineVal - contractionVal) < 1e-9);
+    
         std::cout << shape << ',' << n_nodes << ',' << threads << ',' << base_ms << ',' << contr_ms << '\n';
     };
-
-
+    
     auto one_shape = [&](const std::string& shape, auto list, auto maker, auto nodesFn)
     {
         for (auto p : list) {
