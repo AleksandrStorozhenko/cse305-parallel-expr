@@ -19,7 +19,7 @@ public:
     }
 
     double compute(){
-        return value;
+        return *value;
     }
 
 };

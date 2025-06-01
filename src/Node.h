@@ -84,11 +84,11 @@ public:
 
             //rake
             if(is_left)
-                parent->on_rake_left(value);
+                parent->on_rake_left(*value);
             else
-                parent->on_rake_right(value);
+                parent->on_rake_right(*value);
 
-            parent->num_children --;
+            parent->num_children --;    
             delete this;
         }
         else if(num_children == 1 && parent){
