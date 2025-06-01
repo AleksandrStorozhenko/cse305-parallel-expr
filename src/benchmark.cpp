@@ -30,11 +30,10 @@ double time_ms(F&& f)
 // counters to avoid private problems
 static inline std::size_t caterpillarNodes(std::size_t spine){return 3 * spine - 2;}
 
-static inline std::size_t accordionNodes(unsigned depth)
-{
-    if (depth == 0) return 1;
-    if (depth % 2 == 0) return 3;
-    return 2 + accordionNodes(depth - 1);
+static std::size_t accordionNodes(unsigned d) {
+    if (d == 0) return 1;
+    if (d % 2 == 0) return 3 + accordionNodes(d-1);
+    return 2 + accordionNodes(d-1);
 }
 
 static inline std::size_t fibNodes(unsigned d)
@@ -81,6 +80,7 @@ int main(int argc, char* argv[])
             std::mt19937 gi(seed);
             Node* tmp = maker(param, gi, true, '+');
             contr_sum += time_ms([&]{ contractionVal = TreeContraction(tmp, threads); });
+            if (threads == 1) delete tmp;
         }
         double contr_ms = contr_sum / REPS;
 
