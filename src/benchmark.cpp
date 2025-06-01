@@ -76,11 +76,13 @@ int main(int argc, char* argv[])
         double contractionVal = 0.0, contr_sum = 0.0;
         for (int i = 0; i < REPS; ++i) {
             std::mt19937 gi(seed + i);
-            Node* tmp = maker(param, gi, true, '+');
-            contr_sum += time_ms([&]{ contractionVal = TreeContraction(tmp, threads); });
-            delete tmp;
+            Node* tmp = maker(param, gi, true, '+'); // TreeContraction will free tmp
+            contr_sum += time_ms([&]{
+                contractionVal = TreeContraction(tmp, threads);
+            });
         }
-        double contr_ms = contr_sum / REPS;        
+        double contr_ms = contr_sum / REPS;
+           
 
         assert(std::fabs(baselineVal - contractionVal) < 1e-9);
         std::cout << shape << ',' << n_nodes << ',' << threads << ',' << base_ms << ',' << contr_ms << '\n';
