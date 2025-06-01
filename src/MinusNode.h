@@ -32,7 +32,7 @@ public:
         double first  = left->compute();
         double second = right->compute();
         value = first - second;
-        return value;
+        return *value;
     }
 };
 
