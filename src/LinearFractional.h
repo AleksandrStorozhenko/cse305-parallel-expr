@@ -19,7 +19,7 @@ public:
     double eval(double x) {
         assert(c*x + d != 0);
 
-        return a * x + b / (c * x + d);
+        return (a * x + b) / (c * x + d);
     }
 
     LinearFractional compose(const LinearFractional& other){
