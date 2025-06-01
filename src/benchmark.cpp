@@ -74,14 +74,15 @@ int main(int argc, char* argv[])
         double base_ms = base_sum / REPS;
         delete rootSeq;
 
-        std::mt19937 g2(seed);
-        Node* rootPar = maker(param, g2, true, '+');
-
         double contractionVal = 0.0, contr_sum = 0.0;
         for (int i = 0; i < REPS; ++i)
-            contr_sum += time_ms([&]{ contractionVal = TreeContraction(rootPar, threads); });
+        {
+            // rebuild the tree for this iteration
+            std::mt19937 gi(seed);
+            Node* tmp = maker(param, gi, true, '+');
+            contr_sum += time_ms([&]{ contractionVal = TreeContraction(tmp, threads); });
+        }
         double contr_ms = contr_sum / REPS;
-        delete rootPar;
 
         assert(std::fabs(baselineVal - contractionVal) < 1e-9);
         std::cout << shape << ',' << n_nodes << ',' << threads << ',' << base_ms << ',' << contr_ms << '\n';
