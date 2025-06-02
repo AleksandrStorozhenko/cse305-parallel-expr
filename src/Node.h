@@ -32,9 +32,8 @@ protected:
     
     bool is_left{false};
     LinearFractional lin_frac;
-    std::optional<double> value;
 public:
-    
+    std::optional<double> value;
     Node() : parent(nullptr), left(nullptr), right(nullptr), num_children(0) {}
    
     Node(Node* _left, Node* _right) : parent(nullptr), left(_left), right(_right)
@@ -83,13 +82,17 @@ public:
             std::lock(lk_self, lk_par);
 
             //rake
-            if(is_left)
+            if(is_left){
                 parent->on_rake_left(*value);
-            else
+                parent->left = nullptr;
+            }
+            else{
                 parent->on_rake_right(*value);
+                parent->right = nullptr;
+            }
 
             parent->num_children --;    
-            delete this;
+            // delete this;
         }
         else if(num_children == 1 && parent){
             auto son = children()[0];
@@ -116,7 +119,7 @@ public:
 
                 //disconnect & delete
                 left = right = nullptr;
-                delete this;
+                // delete this;
             }
         }
     }
