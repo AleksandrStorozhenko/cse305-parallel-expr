@@ -5,6 +5,7 @@
 #include "ThreadPool.h"
 #include <vector>
 #include <unordered_set>
+#include <functional>
 
 class TreeContraction
 {
@@ -13,7 +14,7 @@ public:
     static void schedule_contract(const std::vector<Node*>& nodes, size_t start, size_t end, SimplePool& threads){
         for(auto i = start; i < end; i++){
             if(!nodes[i]->value.has_value()){
-                threads.push(&Node::contract, nodes[i]);
+                threads.push([n = nodes[i]](){ n->contract(); });
             }
         }
     }
@@ -29,6 +30,7 @@ public:
                 threads.push(schedule_contract, nodes, i, std::min(i + per_thread, n), std::ref(threads));
             }
         }
+        return 0;
     }
 
 };
