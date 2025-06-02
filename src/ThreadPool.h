@@ -26,14 +26,17 @@ void SafeUnboundedQueue<E>::push(const E& element) {
     std::lock_guard<std::mutex> lk(lock);
     bool wasEmpty = is_empty();
     elements.push(element);
-    if (wasEmpty) not_empty.notify_one();
+    if(wasEmpty){
+        not_empty.notify_all();
+    }
 }
 
 template <class E> 
 E SafeUnboundedQueue<E>::pop() {
     std::unique_lock<std::mutex> lk(lock);
-
-    not_empty.wait(lk, [&]{ return !is_empty(); });
+    while(is_empty()){
+        not_empty.wait(lk);
+    }
     auto elt = elements.front();
     elements.pop();
     return elt;
@@ -44,18 +47,14 @@ class SimplePool {
         unsigned int num_workers;
         std::vector<std::thread> workers;
         SafeUnboundedQueue<std::function<bool()> > tasks;
-
-        std::atomic<int> in_flight{0}; // tasks currently executing
-        std::mutex barrier_mtx;     
-        std::condition_variable barrier_cv;
-
+        
         void do_work();
+        // create workers: workers[i] = std::thread(&do_work)
     public:
         SimplePool(unsigned int num_workers = 0);
         ~SimplePool();
         template <class F, class... Args>
         void push(F f, Args ... args);
-        void barrier(); // wait until queue + running tasks empty
         void stop();
 };
 
@@ -63,12 +62,12 @@ void SimplePool::do_work() {
     bool should_continue = true;
     while(should_continue){
         auto task = tasks.pop();
+        // std::cout<<"Thread new task taken"<<std::endl;
+
         should_continue = task();
-        if (--in_flight == 0) { 
-            std::lock_guard<std::mutex> lk(barrier_mtx); 
-            barrier_cv.notify_all(); 
-        }
     }
+    // std::cout<<"Thread stopping."<<std::endl;
+
 }
 
 SimplePool::SimplePool(unsigned int num_workers) {
@@ -84,25 +83,25 @@ SimplePool::~SimplePool() {
 
 template <class F, class... Args>
 void SimplePool::push(F f, Args ... args) {
-    ++in_flight; //new  track task
+    // std::cout<<"Simple pool push called"<<std::endl;
     tasks.push([f, args...]() -> bool {
         f(args...);
         return true;
     });
 }
 
-void SimplePool::barrier() {
-    std::unique_lock<std::mutex> lk(barrier_mtx);
-    barrier_cv.wait(lk, [&]{ return in_flight.load() == 0; });
-}
-
 void SimplePool::stop() {
+    // std::cout<<"Simple pool stop called"<<std::endl;
+
     for(int i = 0; i < num_workers; i++){
         tasks.push([]() -> bool {return false;});
     }
+    // std::cout<<"Threads pushed stop."<<std::endl;
+
     for(int i = 0; i < num_workers; i++){   
         if(workers[i].joinable())  
             workers[i].join();
+        // std::cout<<"Thread "<<i<<" stopped.";    
     }
 }
 
