@@ -6,7 +6,7 @@
 
 class DivideNode: public Node {
 
-void on_rake_left(double x){
+void on_rake_left(double x) override {
     if(lin_frac.was_set()){
         value = lin_frac.eval(x);
     }
@@ -14,7 +14,8 @@ void on_rake_left(double x){
         lin_frac = LinearFractional(0, x, 1, 0);
     }
 }
-void on_rake_right(double x){
+
+void on_rake_right(double x) override {
     if(lin_frac.was_set()){
         value = lin_frac.eval(x);
     }
@@ -25,10 +26,11 @@ void on_rake_right(double x){
 public:
     DivideNode(Node* left, Node* right) : Node(left, right) { }
 
-    double compute(){
+
+double compute() override {
         double first = left->compute();
         double second = right->compute();
-
+        assert(second != 0 && "DivideNode: division by zero");
         value = first/second;
         return *value;
     }

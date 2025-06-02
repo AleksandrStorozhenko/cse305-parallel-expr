@@ -5,8 +5,9 @@
 
 class ValueNode: public Node {
 private:
-    void on_rake_left(double x){}
-    void on_rake_right(double x){}
+
+    void on_rake_left(double x) override {}
+    void on_rake_right(double x) override {}
 
 public:
     
@@ -18,7 +19,8 @@ public:
         value = _value;
     }
 
-    double compute(){
+
+    double compute() override {
         return *value;
     }
 

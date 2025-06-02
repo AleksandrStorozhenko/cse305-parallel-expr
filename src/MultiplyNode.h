@@ -10,13 +10,15 @@ private:
             value = lin_frac.eval(x);
         }
         else{
-            lin_frac = LinearFractional(x, 0, 0, 0);
+            lin_frac = LinearFractional(x, 0, 0, 1);   // (y -> x·y)
         }
     }
-    void on_rake_left(double x){
+
+    void on_rake_left(double x) override {
         on_rake(x);
     }
-    void on_rake_right(double x){
+
+    void on_rake_right(double x) override {
         on_rake(x);
     }
 

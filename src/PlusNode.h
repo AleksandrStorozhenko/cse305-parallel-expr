@@ -9,20 +9,22 @@ class PlusNode: public Node {
             value = lin_frac.eval(x);
         }
         else{
-            lin_frac = LinearFractional(1, x, 0, 0);
+            lin_frac = LinearFractional(1, x, 0, 1);   // (y -> x + y)
         }
     }
-    void on_rake_left(double x){
+    
+    void on_rake_left(double x) override {
         on_rake(x);
     }
-    void on_rake_right(double x){
+
+    void on_rake_right(double x) override {
         on_rake(x);
     }
 
 public:
     PlusNode(Node* left, Node* right) : Node(left, right) { }
     
-    double compute(){
+    double compute() override {
         double sum = 0;
         for(auto& son: children()){
             sum += son->compute();

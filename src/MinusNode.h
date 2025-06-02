@@ -5,22 +5,22 @@
 
 class MinusNode: public Node {
 private:
-    void on_rake_left(double x){
+    void on_rake_left(double x) override {
         if(lin_frac.was_set()){
             value = lin_frac.eval(x);
         }
         else{
-            // (1 * x + 0)/(0 * x + 0)
-            lin_frac = LinearFractional(1, x, 0, 1);
+            // (-1 * y + x)/(0 * y + 1)  ->  x − y
+            lin_frac = LinearFractional(-1, x, 0, 1);
         }
     }
 
-    void on_rake_right(double x){
+    void on_rake_right(double x) override {
         if(lin_frac.was_set()){
             value = lin_frac.eval(x);
         }
         else{
-            // (1 * -x + 0)/(0 * x + 0)
+            // (1 * y − x)/(0 * y + 1)  ->  y − x
             lin_frac = LinearFractional(1, -x, 0, 1);
         }
     }

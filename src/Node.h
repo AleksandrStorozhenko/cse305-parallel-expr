@@ -8,7 +8,7 @@
 #include <mutex>
 #include <atomic>
 #include <thread>
-#include<optional>
+#include <optional>
 
 class TreeContraction;
 
@@ -20,14 +20,14 @@ private:
     virtual void on_rake_left(double val) = 0;
     virtual void on_rake_right(double val) = 0;
 
-
 protected:
     Node* parent;
     Node* left;
     Node* right;
 
+    //int num_children; - 2 different threads may rake children at the same time
+    std::atomic<int> num_children;
 
-    int num_children;
     std::mutex mutex;
     
     bool is_left{false};
@@ -58,9 +58,9 @@ public:
         for (auto* c:children()) delete c;
     }
 
-    std::size_t degree() const { return num_children; }
+    std::size_t degree() const { return num_children.load(); }
 
-    bool isLeaf() const { return num_children == 0; }
+    bool isLeaf() const { return num_children.load() == 0; }
 
     std::vector<Node*> children() {
         std::vector<Node*> c{};
@@ -75,7 +75,8 @@ public:
         //root can NOT be invalidated 
 
         std::unique_lock<std::mutex> lk_self(mutex);
-        if(num_children == 0 && parent){
+
+        if(num_children.load() == 0 && parent){
             //to avoid deadlock
             lk_self.unlock();
             std::unique_lock<std::mutex> lk_par(parent->mutex, std::defer_lock);
@@ -94,7 +95,9 @@ public:
             parent->num_children --;    
             // delete this;
         }
-        else if(num_children == 1 && parent){
+
+        // each thread should see the most recent count
+        else if(num_children.load() == 1 && parent){
             auto son = children()[0];
             //to avoid deadlock
             lk_self.unlock();
@@ -103,7 +106,7 @@ public:
 
             std::lock(lk_self, lk_par, lk_son);
 
-            if(parent->num_children == 1){
+            if(parent->num_children.load() == 1){
                 //contract
                 parent->lin_frac = parent->lin_frac.compose(lin_frac);
                 
