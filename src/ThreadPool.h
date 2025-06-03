@@ -71,6 +71,7 @@ void SimplePool::do_work() {
 }
 
 SimplePool::SimplePool(unsigned int num_workers) {
+    std::cout<<"PoolStart with ="<<num_workers<<std::endl;
     this->num_workers = num_workers;
     for(int i = 0; i < num_workers; i++){
         workers.emplace_back(&SimplePool::do_work, this);

@@ -32,6 +32,7 @@ protected:
     
     bool is_left{false};
     LinearFractional lin_frac;
+    bool done{false};
 public:
     std::optional<double> value;
     Node() : parent(nullptr), left(nullptr), right(nullptr), num_children(0) {}
@@ -62,6 +63,8 @@ public:
 
     bool isLeaf() const { return num_children.load() == 0; }
 
+    bool isDone() const {return done; }
+
     std::vector<Node*> children() {
         std::vector<Node*> c{};
         if(left)
@@ -73,14 +76,16 @@ public:
     
     void contract(){
         //root can NOT be invalidated 
-
+        std::cout<<"Inside contract for node = "<<this<<std::endl;
         std::unique_lock<std::mutex> lk_self(mutex);
 
         if(num_children.load() == 0 && parent){
             //to avoid deadlock
+
             lk_self.unlock();
             std::unique_lock<std::mutex> lk_par(parent->mutex, std::defer_lock);
             std::lock(lk_self, lk_par);
+            std::cout<<"rake for node = "<<this<<std::endl;
 
             //rake
             if(is_left){
@@ -94,6 +99,7 @@ public:
 
             parent->num_children --;    
             // delete this;
+            done = true;
         }
 
         // each thread should see the most recent count
@@ -108,6 +114,8 @@ public:
 
             if(parent->num_children.load() == 1){
                 //contract
+                std::cout<<"contract for node = "<<this<<std::endl;
+
                 parent->lin_frac = parent->lin_frac.compose(lin_frac);
                 
                 if(is_left){
@@ -123,6 +131,7 @@ public:
                 //disconnect & delete
                 left = right = nullptr;
                 // delete this;
+                done = true;
             }
         }
     }

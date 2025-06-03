@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     const double tolExp = (argc > 3) ? std::stod(argv[3]) : 1.0;
 
     // tables
-    const std::vector<unsigned> perfectDepth = {6, 9, 12};
+    const std::vector<unsigned> perfectDepth = {1, 6, 9, 12};
     const std::vector<std::size_t> chainLen = {32, 256, 2048};
     const std::vector<unsigned> fibDepth = {8, 14, 20};
     const std::vector<std::size_t> rndInt = {127, 1023, 4095};
@@ -100,7 +100,9 @@ int main(int argc, char* argv[])
             double val = 0.0;
             contr_sum += time_ms([&]{ val = runTreeContraction(tmp, threads); });
             const double tol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
+            std::cout<<val<<" = "<<baselineVals[i]<<std::endl;
             assert(std::fabs(baselineVals[i] - val) <= tol);
+            
         }
         double contr_ms = contr_sum / REPS;
 
