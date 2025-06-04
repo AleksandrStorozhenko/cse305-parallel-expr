@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_set>
 #include <functional>
+#include <unistd.h>
 
 class TreeContraction
 {
@@ -16,8 +17,6 @@ public:
 
         for(auto i = start; i < end; i++){
             if(!nodes[i]->isDone()){
-                std::cout<<"Contracting node "<<i<<std::endl;
-
                 threads.push([n = nodes[i]](){ n->contract(); });
             }
         }
@@ -37,6 +36,7 @@ public:
                 std::cout<<"Scheduling from"<<i<<" to "<<std::min(i + per_thread, n)<<std::endl;
                 threads.push(schedule_contract, nodes, i, std::min(i + per_thread, n), std::ref(threads));
             }
+            usleep(10000);
             count++;
         }
         threads.stop();
