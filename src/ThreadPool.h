@@ -14,11 +14,14 @@ class SafeUnboundedQueue {
         std::queue<E> elements;
         std::mutex lock;
         std::condition_variable not_empty;
+        std::condition_variable empty;
     public: 
         SafeUnboundedQueue<E>(){}
         void push(const E& element);
         E pop ();
         bool is_empty() const {return this->elements.empty();}
+
+        void waitEmpty();
 };
 
 template <class E>
@@ -35,11 +38,22 @@ template <class E>
 E SafeUnboundedQueue<E>::pop() {
     std::unique_lock<std::mutex> lk(lock);
     while(is_empty()){
+        empty.notify_all();
         not_empty.wait(lk);
     }
     auto elt = elements.front();
     elements.pop();
     return elt;
+}
+
+//blocks until empty
+template <class E>
+void SafeUnboundedQueue<E>::waitEmpty() {
+    std::unique_lock<std::mutex> lk(lock);
+    while(!is_empty()){
+        empty.wait(lk);
+    }
+    return;
 }
 
 //TODO: add timing to pool
@@ -55,6 +69,7 @@ class SimplePool {
         template <class F, class... Args>
         void push(F f, Args ... args);
         void stop();
+        void waitEmpty();
 };
 
 void SimplePool::do_work() {
@@ -84,11 +99,14 @@ void SimplePool::push(F f, Args ... args) {
     });
 }
 
+//blocks until empty
+void SimplePool::waitEmpty() {
+    tasks.waitEmpty();
+}
+
 void SimplePool::stop() {
     // wait until every task is gone
-    while(!tasks.is_empty()) {
-        std::this_thread::yield(); // give workers time to drain
-    }
+    tasks.waitEmpty();
         
     for(int i = 0; i < num_workers; ++i){
         tasks.push([]() -> bool { return false; });

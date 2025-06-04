@@ -35,7 +35,8 @@ public:
                 // std::log<<"Scheduling from"<<i<<" to "<<std::min(i + per_thread, n)<<std::endl;
                 threads.push(schedule_contract, nodes, i, std::min(i + per_thread, n), std::ref(threads));
             }
-            usleep(10000);
+            // usleep(1);
+            threads.waitEmpty();
         }
         threads.stop();
         return 0;
