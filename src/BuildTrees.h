@@ -35,7 +35,7 @@ namespace bench
         return std::uniform_real_distribution<double>(lo,hi)(g);
     }
 
-    // basic tree gen
+    // perfect binary tree
     inline Node* perfectBin(unsigned depth, std::mt19937& g, bool mixOps = false, char fixedOp = '+')
     {
         if (depth == 0) return new ValueNode(randLeaf(g));
@@ -44,82 +44,22 @@ namespace bench
         return makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
     }
 
-    // lr chains
-    inline Node* leftChain(std::size_t leaves, std::mt19937& g, bool mixOps = false, char fixedOp = '+')
+    // random binary tree
+    inline Node* randomBalanced(unsigned depth, std::mt19937& g, bool mixOps = true, char fixedOp = '+')
     {
-        assert(leaves);
-        Node* root = new ValueNode(randLeaf(g));
-        for (std::size_t i = 1; i < leaves; ++i)
-            root = makeOp(mixOps ? pickOp(g) : fixedOp, root, new ValueNode(randLeaf(g)));
-        return root;
-    }
-    
-    inline Node* rightChain(std::size_t leaves, std::mt19937& g, bool mixOps = false, char fixedOp = '+')
-    {
-        assert(leaves);
-        Node* root = new ValueNode(randLeaf(g));
-        for (std::size_t i = 1; i < leaves; ++i)
-            root = makeOp(mixOps ? pickOp(g) : fixedOp,
-                        new ValueNode(randLeaf(g)),
-                        root);
-        return root;
-    }
-
-    // random tests
-    inline Node* randomTree(std::size_t internal, std::mt19937& g, bool mixOps = true, char fixedOp = '+')
-    {
-        std::vector<Node*> pool;
-        pool.reserve(internal + 1);
-        for (std::size_t i = 0; i < internal + 1; ++i)
-            pool.push_back(new ValueNode(randLeaf(g)));
-
-        for (std::size_t i = 0; i < internal; ++i) {
-            std::uniform_int_distribution<std::size_t> pick(0, pool.size()-1);
-            std::size_t a = pick(g), b = pick(g);
-            while (b == a) b = pick(g);
-
-            Node* parent = makeOp(mixOps ? pickOp(g) : fixedOp, pool[a], pool[b]);
-            pool[a] = parent;
-            pool[b] = pool.back();
-            pool.pop_back();
+        if (depth == 0) {
+            return new ValueNode(randLeaf(g));
         }
-        assert(pool.size() == 1);
-        return pool.front();
-    }
 
-    // Fibonacii Trees
-    inline Node* fibTree(unsigned depth, std::mt19937& g, bool mixOps = false, char fixedOp = '+')
-    {
-        if (depth <= 1) return new ValueNode(randLeaf(g));
-        Node* l = fibTree(depth-1, g, mixOps, fixedOp);
-        Node* r = fibTree(depth-2, g, mixOps, fixedOp);
+        unsigned leftMax  = depth - 1;
+        unsigned leftUsed = std::uniform_int_distribution<unsigned>(0, leftMax)(g);
+        unsigned rightUsed = depth - 1;
+
+        Node* l = randomBalanced(leftUsed,  g, mixOps, fixedOp);
+        Node* r = randomBalanced(rightUsed, g, mixOps, fixedOp);
+
         return makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
     }
-
-    // More test tree generators
-    inline Node* caterpillar(std::size_t spineLen, std::mt19937& g, bool mixOps = true, char fixedOp = '+')
-    {
-        assert(spineLen);
-        Node* root = new ValueNode(randLeaf(g));
-        for (std::size_t i = 1; i < spineLen; ++i) {
-            Node* leaf  = new ValueNode(randLeaf(g));
-            Node* spine = makeOp(mixOps ? pickOp(g) : fixedOp,
-                                new ValueNode(randLeaf(g)), leaf);
-            root = makeOp(mixOps ? pickOp(g) : fixedOp, root, spine);
-        }
-        return root;
-    }
-
-    inline Node* accordion(unsigned depth, std::mt19937& g, bool mixOps = true, char fixedOp = '+')
-    {
-        // bottom up
-        if (depth == 0)
-            return new ValueNode(randLeaf(g));
-        Node* rest = accordion(depth - 1, g, mixOps, fixedOp);
-        Node* heavy = (depth % 2 == 0) ? perfectBin(1, g, mixOps, fixedOp) : new ValueNode(randLeaf(g));
-        return makeOp(mixOps ? pickOp(g) : fixedOp, rest, heavy);
-    }
-
 
 }
 #endif
