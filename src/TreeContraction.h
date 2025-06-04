@@ -17,6 +17,7 @@ public:
 
         for(auto i = start; i < end; i++){
             if(!nodes[i]->isDone()){
+                // std::cout<<"Node "<<i<<" not done"<<std::endl;
                 threads.push([n = nodes[i]](){ n->contract(); });
             }
         }
@@ -24,20 +25,17 @@ public:
 
     static std::size_t TreeContract(const std::vector<Node*>& nodes, Node* root, int num_threads)
     {
-        std::cout<<"Starting treeContract with "<<nodes.size()<<" and threads = "<<num_threads<<std::endl;
+        // std::cout<<"Starting treeContract with "<<nodes.size()<<" and threads = "<<num_threads<<std::endl;
         int n = nodes.size();
         int per_thread = n / num_threads + 1;
 
         SimplePool threads(num_threads);
-        int count = 0;
-        while(!root->isDone() && count < 5){
-            std::cout<<"Finished = "<<root->value.has_value()<<std::endl;
+        while(!root->value.has_value()){
             for(int i = 0; i < n; i+= per_thread){
-                std::cout<<"Scheduling from"<<i<<" to "<<std::min(i + per_thread, n)<<std::endl;
+                // std::log<<"Scheduling from"<<i<<" to "<<std::min(i + per_thread, n)<<std::endl;
                 threads.push(schedule_contract, nodes, i, std::min(i + per_thread, n), std::ref(threads));
             }
             usleep(10000);
-            count++;
         }
         threads.stop();
         return 0;

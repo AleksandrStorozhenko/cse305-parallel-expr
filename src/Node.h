@@ -76,7 +76,7 @@ public:
     
     void contract(){
         //root can NOT be invalidated 
-        std::cout<<"Inside contract for node = "<<this<<std::endl;
+        // std::cout<<"Inside contract for node = "<<this<<std::endl;
         std::unique_lock<std::mutex> lk_self(mutex);
 
         if(num_children.load() == 0 && parent){
@@ -85,7 +85,7 @@ public:
             lk_self.unlock();
             std::unique_lock<std::mutex> lk_par(parent->mutex, std::defer_lock);
             std::lock(lk_self, lk_par);
-            std::cout<<"rake for node = "<<this<<std::endl;
+            // std::cout<<"rake for node = "<<this<<std::endl;
 
             //rake
             if(is_left){
@@ -114,7 +114,7 @@ public:
 
             if(parent->num_children.load() == 1){
                 //contract
-                std::cout<<"contract for node = "<<this<<std::endl;
+                // std::cout<<"contract for node = "<<this<<std::endl;
 
                 parent->lin_frac = parent->lin_frac.compose(lin_frac);
                 

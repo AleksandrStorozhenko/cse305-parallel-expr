@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
             double val = 0.0;
             contr_sum += time_ms([&]{ val = runTreeContraction(tmp, threads); });
             const double tol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
-            std::cout<<val<<" = "<<baselineVals[i]<<std::endl;
+            // std::cout<<val<<" = "<<baselineVals[i]<<std::endl;
             assert(std::fabs(baselineVals[i] - val) <= tol);
             
         }
