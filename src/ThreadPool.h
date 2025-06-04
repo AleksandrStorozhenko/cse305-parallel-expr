@@ -49,7 +49,6 @@ class SimplePool {
         SafeUnboundedQueue<std::function<bool()> > tasks;
         
         void do_work();
-        // create workers: workers[i] = std::thread(&do_work)
     public:
         SimplePool(unsigned int num_workers = 0);
         ~SimplePool();
@@ -62,16 +61,11 @@ void SimplePool::do_work() {
     bool should_continue = true;
     while(should_continue){
         auto task = tasks.pop();
-        // std::cout<<"Thread new task taken"<<std::endl;
-
         should_continue = task();
     }
-    // std::cout<<"Thread stopping."<<std::endl;
-
 }
 
 SimplePool::SimplePool(unsigned int num_workers) {
-    // std::cout<<"PoolStart with ="<<num_workers<<std::endl;
     this->num_workers = num_workers;
     for(int i = 0; i < num_workers; i++){
         workers.emplace_back(&SimplePool::do_work, this);
@@ -84,7 +78,6 @@ SimplePool::~SimplePool() {
 
 template <class F, class... Args>
 void SimplePool::push(F f, Args ... args) {
-    // std::cout<<"Simple pool push called"<<std::endl;
     tasks.push([f, args...]() -> bool {
         f(args...);
         return true;
@@ -92,17 +85,18 @@ void SimplePool::push(F f, Args ... args) {
 }
 
 void SimplePool::stop() {
-    // std::cout<<"Simple pool stop called"<<std::endl;
-
-    for(int i = 0; i < num_workers; i++){
-        tasks.push([]() -> bool {return false;});
+    // wait until every task is gone
+    while(!tasks.is_empty()) {
+        std::this_thread::yield(); // give workers time to drain
     }
-    // std::cout<<"Threads pushed stop."<<std::endl;
+        
+    for(int i = 0; i < num_workers; ++i){
+        tasks.push([]() -> bool { return false; });
+    }
 
-    for(int i = 0; i < num_workers; i++){   
-        if(workers[i].joinable())  
+    for(int i = 0; i < num_workers; ++i){
+        if(workers[i].joinable())
             workers[i].join();
-        // std::cout<<"Thread "<<i<<" stopped.";    
     }
 }
 
