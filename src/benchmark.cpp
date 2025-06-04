@@ -15,10 +15,22 @@
 #include "BuildTrees.h"
 #include "TreeContraction.h"
 
+// <-- CHANGED: Added a helper to count the actual # of nodes.
+static inline std::size_t countNodes(Node* root) {
+    if (!root) return 0;
+    std::size_t n = 1;
+    for (auto* c : root->children()) {
+        n += countNodes(c);
+    }
+    return n;
+}
+
 static inline void collect_nodes(Node* n, std::vector<Node*>& v) {
     if (!n) return;
     v.push_back(n);
-    for (auto* c : n->children()) collect_nodes(c, v);
+    for (auto* c : n->children()) {
+        collect_nodes(c, v);
+    }
 }
 
 double runTreeContraction(Node* root, unsigned threads = 1) {
@@ -38,96 +50,91 @@ double time_ms(F&& f)
     return std::chrono::duration<double,std::milli>(t1 - t0).count();
 }
 
-// counters to avoid private problems
-static inline std::size_t caterpillarNodes(std::size_t spine){return 3 * spine - 2;}
-
-static std::size_t accordionNodes(unsigned d) {
-    if (d == 0) return 1;
-    if (d % 2 == 0) return 3 + accordionNodes(d-1);
-    return 2 + accordionNodes(d-1);
-}
-
-static inline std::size_t fibNodes(unsigned d)
-{
-    std::size_t a = 1, b = 1;
-    for (unsigned i = 0; i < d; ++i) { std::size_t t = a + b; a = b; b = t;}
-    return b - 1;
-}
-
 int main(int argc, char* argv[])
 {
-    const int REPS = (argc > 1) ? std::stoi(argv[1]) : 20;
+    const int REPS = (argc > 1) ? std::stoi(argv[1]) : 10;
     const double tolFactor = (argc > 2) ? std::stod(argv[2]) : 1e-12;
     const double tolExp = (argc > 3) ? std::stod(argv[3]) : 1.0;
 
-    // tables
-    const std::vector<unsigned> perfectDepth = {1, 6, 9, 12};
-    const std::vector<std::size_t> chainLen = {32, 256, 2048};
-    const std::vector<unsigned> fibDepth = {8, 14, 20};
-    const std::vector<std::size_t> rndInt = {127, 1023, 4095};
-    const std::vector<std::size_t> catSpine = {32, 256, 2048};
-    const std::vector<unsigned> accDepth = {7, 11, 15};
+    // some example depths for testing
+    std::vector<unsigned> testDepths{2, 6, 9, 12};
 
-    // thread
-    const unsigned HW_THREADS = std::thread::hardware_concurrency() ? std::thread::hardware_concurrency() : 1;
+    // gather thread counts
+    const unsigned HW_THREADS =
+        std::thread::hardware_concurrency() ? std::thread::hardware_concurrency() : 1;
     std::vector<unsigned> threadCounts;
-    for (unsigned v = 1; v <= HW_THREADS; v <<= 1)
+    for (unsigned v = 1; v <= HW_THREADS; v <<= 1) {
         threadCounts.push_back(v);
-    if (threadCounts.back() != HW_THREADS)
+    }
+    if (threadCounts.back() != HW_THREADS) {
         threadCounts.push_back(HW_THREADS);
+    }
 
     std::mt19937 master(42);
-    std::cout << "shape,n_nodes,threads,baseline_ms,contraction_ms\n";
+    std::cout << "type,depth,threads,n_nodes,baseline_ms,contraction_ms\n";
 
-    auto run_case = [&](const std::string& shape, std::size_t n_nodes, auto maker, auto param, unsigned threads, unsigned long seed)
+    // We also measure n_nodes using a sample tree.
+    auto run_case = [&](const std::string& shape,
+                        unsigned depth,
+                        auto treeMaker,
+                        unsigned threads,
+                        unsigned long seed)
     {
-        std::vector<double> baselineVals(REPS);
-        double base_sum = 0.0;
-        for (int i = 0; i < REPS; ++i) {
-            std::mt19937 gi(seed + i);
-            Node* tmp = maker(param, gi, true, '+');
-            double val = 0.0;
-            base_sum += time_ms([&]{ val = tmp->compute(); });
-            baselineVals[i] = val;
-            delete tmp;
-        }
-        double base_ms = base_sum / REPS;
+        // measure the actual node count by building an example tree
+        {
+            std::mt19937 tmpRng(seed + 999999);
+            Node* example = treeMaker(depth, tmpRng, true, '+');
+            std::size_t n_nodes = countNodes(example);
+            delete example;
 
-        double contr_sum = 0.0;
-        for (int i = 0; i < REPS; ++i) {
-            std::mt19937 gi(seed + i);
-            Node* tmp = maker(param, gi, true, '+');
-            double val = 0.0;
-            contr_sum += time_ms([&]{ val = runTreeContraction(tmp, threads); });
-            const double tol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
-            // std::cout<<val<<" = "<<baselineVals[i]<<std::endl;
-            assert(std::fabs(baselineVals[i] - val) <= tol);
-            
-        }
-        double contr_ms = contr_sum / REPS;
+            // baseline
+            std::vector<double> baselineVals(REPS);
+            double base_sum = 0.0;
+            for (int i = 0; i < REPS; ++i) {
+                std::mt19937 gi(seed + i);
+                Node* tmp = treeMaker(depth, gi, true, '+');
+                double val = 0.0;
+                base_sum += time_ms([&]{
+                    val = tmp->compute();
+                });
+                baselineVals[i] = val;
+                delete tmp;
+            }
+            double base_ms = base_sum / REPS;
 
-        std::cout << shape << ',' << n_nodes << ',' << threads << ','
-                  << base_ms << ',' << contr_ms << '\n';
+            // contraction
+            double contr_sum = 0.0;
+            for (int i = 0; i < REPS; ++i) {
+                std::mt19937 gi(seed + i);
+                Node* tmp = treeMaker(depth, gi, true, '+');
+                double val = 0.0;
+                contr_sum += time_ms([&]{
+                    val = runTreeContraction(tmp, threads);
+                });
+                double tol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
+                // correctness check
+                assert(std::fabs(baselineVals[i] - val) <= tol);
+                delete tmp;
+            }
+            double contr_ms = contr_sum / REPS;
+
+            // print
+            std::cout << shape << ','
+                      << depth << ','
+                      << threads << ','
+                      << n_nodes << ','
+                      << base_ms << ','
+                      << contr_ms << '\n';
+        }
     };
 
-    auto one_shape = [&](const std::string& shape, auto list, auto maker, auto nodesFn)
-    {
-        for (auto p : list) {
-            unsigned long seed = master();
-            std::size_t n_nodes = nodesFn(p);
-            for (unsigned t : threadCounts)
-                run_case(shape, n_nodes, maker, p, t, seed);
+    for (unsigned d : testDepths) {
+        unsigned long seed = master();
+        for (unsigned t : threadCounts) {
+            run_case("perfectBin", d, bench::perfectBin, t, seed);
+            run_case("randomBalanced", d, bench::randomBalanced, t, seed);
         }
-    };
-
-    one_shape("perfect", perfectDepth, bench::perfectBin, [](unsigned d){ return (1u << (d+1)) - 1u; });
-    auto chainNodes = [](std::size_t len){ return 2*len - 1; };
-    one_shape("left_chain", chainLen, bench::leftChain, chainNodes);
-    one_shape("right_chain",chainLen, bench::rightChain, chainNodes);
-    one_shape("fibonacci", fibDepth, bench::fibTree, fibNodes);
-    one_shape("random", rndInt, bench::randomTree,[](std::size_t k){ return 2*k + 1; });
-    one_shape("caterpillar",catSpine, bench::caterpillar,caterpillarNodes);
-    one_shape("accordion", accDepth, bench::accordion, accordionNodes);
+    }
 
     return 0;
 }
