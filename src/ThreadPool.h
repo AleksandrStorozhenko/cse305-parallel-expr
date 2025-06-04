@@ -43,6 +43,9 @@ E SafeUnboundedQueue<E>::pop() {
     }
     auto elt = elements.front();
     elements.pop();
+    if(is_empty()){
+        empty.notify_all();
+    }
     return elt;
 }
 
