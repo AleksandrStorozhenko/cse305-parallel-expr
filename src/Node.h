@@ -32,7 +32,12 @@ protected:
     
     bool is_left{false};
     LinearFractional lin_frac;
-    bool done{false};
+
+    /* important fixes */
+    std::atomic<bool> done{false}; // was plain bool
+    std::atomic_flag busy = ATOMIC_FLAG_INIT; // guard against duplicate contract()
+    /* -------------- */
+
 public:
     std::optional<double> value;
     Node() : parent(nullptr), left(nullptr), right(nullptr), num_children(0) {}
@@ -41,13 +46,13 @@ public:
     {
         num_children = 0;
 
-        if (left){ 
+        if (left){
             left->is_left = true;
             left->parent = this;
             num_children++;
         }
         
-        if (right){ 
+        if (right){
             right->is_left = false;
             right->parent = this;
             num_children++;
@@ -63,20 +68,20 @@ public:
 
     bool isLeaf() const { return num_children.load() == 0; }
 
-    bool isDone() const {return done; }
+    bool isDone() const { return done.load(); }
 
     std::vector<Node*> children() {
         std::vector<Node*> c{};
-        if(left)
-            c.push_back(left);
-        if(right)
-            c.push_back(right);
+        if(left) c.push_back(left);
+        if(right) c.push_back(right);
         return c;
     }
     
     void contract(){
-        //root can NOT be invalidated 
-        // std::cout<<"Inside contract for node = "<<this<<std::endl;
+        //root can NOT be invalidated
+        if(done.load()) return; // already finished
+        if(busy.test_and_set()) return; // another thread is here
+
         std::unique_lock<std::mutex> lk_self(mutex);
 
         if(num_children.load() == 0 && parent){
@@ -85,7 +90,6 @@ public:
             lk_self.unlock();
             std::unique_lock<std::mutex> lk_par(parent->mutex, std::defer_lock);
             std::lock(lk_self, lk_par);
-            // std::cout<<"rake for node = "<<this<<std::endl;
 
             //rake
             if(is_left){
@@ -97,9 +101,8 @@ public:
                 parent->right = nullptr;
             }
 
-            parent->num_children --;    
-            // delete this;
-            done = true;
+            parent->num_children.fetch_sub(1, std::memory_order_acq_rel); // atomic dec
+            done.store(true, std::memory_order_release);
         }
 
         // each thread should see the most recent count
@@ -114,7 +117,6 @@ public:
 
             if(parent->num_children.load() == 1){
                 //contract
-                // std::cout<<"contract for node = "<<this<<std::endl;
 
                 parent->lin_frac = parent->lin_frac.compose(lin_frac);
                 
@@ -128,12 +130,13 @@ public:
                 }
                 son->parent = parent;
 
-                //disconnect & delete
+                //disconnect
                 left = right = nullptr;
-                // delete this;
-                done = true;
+                done.store(true, std::memory_order_release);
             }
         }
+
+        busy.clear(std::memory_order_release); // allow reschedule if not done
     }
     
     virtual double compute() = 0;
