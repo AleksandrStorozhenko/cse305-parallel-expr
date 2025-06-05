@@ -82,8 +82,8 @@ public:
             std::cout<<"In rake; acquiring this & parent lock; this = "<<this<<"parent = "<<p<<std::endl;
 
             std::scoped_lock lk_par(mutex, p->mutex);
-            if(!isParent(p)){
-                
+
+            if(!(isParent(p) && num_children.load() == 0 && p->degree() >= 1 && !isDone())){
                 return;
             }
             std::cout<<"In rake; acquired; this = "<<this<<std::endl;
@@ -95,36 +95,39 @@ public:
                 p->on_rake_right(*value);
                 p->right.reset();
             }
-            p->num_children.fetch_sub(1, std::memory_order_acq_rel);
-            //delete par & sons
-            done.store(true, std::memory_order_release);
+            p->num_children.fetch_sub(1);
+            std::cout<<"P now has "<<p->num_children.load()<<std::endl;
+            done.store(true);
         }
-        else if (num_children.load() == 1 && !parent.expired()) {
+        else if (num_children.load() == 1 && !parent.expired() && parent.lock()->num_children.load() == 1) {
             auto p = parent.lock();
             Ptr son = left ? left : right;
 
             std::cout<<"In compress; acquiring this & parent & son lock; this = "<<this<<std::endl;
 
             std::scoped_lock lk_other(mutex, p->mutex, son->mutex);
-            if(!(isParent(p) & isSon(son))){
+
+            if(!(isParent(p) && isSon(son) && degree() == 1 && p->degree() == 1 && !isDone())){
                 return;
             }
             std::cout<<"In conttract; acquired; this = "<<this<<std::endl;
 
-            if (p->num_children.load() == 1) {
-                p->lin_frac = p->lin_frac.compose(lin_frac);
+            p->lin_frac = p->lin_frac.compose(lin_frac);
 
-                if (is_left) {
-                    p->left = son;
-                    son->is_left = true;
-                } else {
-                    p->right = son;
-                    son->is_left = false;
-                }
-                son->parent = p;
-                done.store(true, std::memory_order_release);
+            if (is_left) {
+                p->left = son;
+                son->is_left = true;
+            } else {
+                p->right = son;
+                son->is_left = false;
             }
+            son->parent = p;
+
+            num_children.fetch_sub(1);
+            done.store(true);
+        
         }
+        std::cout<<"Node has deg = "<<num_children.load()<<std::endl;
     }
 
     virtual double compute() = 0;

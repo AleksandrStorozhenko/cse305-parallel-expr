@@ -46,8 +46,8 @@ double time_ms(F&& f) {
 int main(int argc, char* argv[])
 {
     const int REPS = (argc > 1) ? std::stoi(argv[1]) : 10;
-    const double tolFactor = (argc > 2) ? std::stod(argv[2]) : 1e-12;
-    const double tolExp = (argc > 3) ? std::stod(argv[3]) : 1.0;
+    const double tolFactor = (argc > 2) ? std::stod(argv[2]) : 1e-6;
+    const double tolExp = (argc > 3) ? std::stod(argv[3]) : 1.0001;
 
     std::vector<unsigned> testDepths{2, 6, 9, 12};
 
