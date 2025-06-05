@@ -9,116 +9,71 @@
 #include <functional>
 #include <atomic>
 
-template <class E> 
+template<class E>
 class SafeUnboundedQueue {
         std::queue<E> elements;
         std::mutex lock;
         std::condition_variable not_empty;
         std::condition_variable empty;
-    public: 
-        SafeUnboundedQueue<E>(){}
-        void push(const E& element);
-        E pop ();
-        bool is_empty() const {return this->elements.empty();}
-
-        void waitEmpty();
-};
-
-template <class E>
-void SafeUnboundedQueue<E>::push(const E& element) {
-    std::lock_guard<std::mutex> lk(lock);
-    bool wasEmpty = is_empty();
-    elements.push(element);
-    if(wasEmpty){
-        not_empty.notify_all();
-    }
-}
-
-template <class E> 
-E SafeUnboundedQueue<E>::pop() {
-    std::unique_lock<std::mutex> lk(lock);
-    while(is_empty()){
-        empty.notify_all();
-        not_empty.wait(lk);
-    }
-    auto elt = elements.front();
-    elements.pop();
-    if(is_empty()){
-        empty.notify_all();
-    }
-    return elt;
-}
-
-//blocks until empty
-template <class E>
-void SafeUnboundedQueue<E>::waitEmpty() {
-    std::unique_lock<std::mutex> lk(lock);
-    while(!is_empty()){
-        empty.wait(lk);
-    }
-    return;
-}
-
-//TODO: add timing to pool
-class SimplePool {
-        unsigned int num_workers;
-        std::vector<std::thread> workers;
-        SafeUnboundedQueue<std::function<bool()> > tasks;
-        
-        void do_work();
     public:
-        SimplePool(unsigned int num_workers = 0);
-        ~SimplePool();
-        template <class F, class... Args>
-        void push(F f, Args ... args);
-        void stop();
-        void waitEmpty();
+        void push(const E& e) {
+            std::lock_guard<std::mutex> lk(lock);
+            bool wasEmpty = elements.empty();
+            elements.push(e);
+            if (wasEmpty) not_empty.notify_all();
+        }
+
+        E pop() {
+            std::unique_lock<std::mutex> lk(lock);
+            while (elements.empty()) {
+                empty.notify_all();
+                not_empty.wait(lk);
+            }
+            E e = std::move(elements.front());
+            elements.pop();
+            if (elements.empty()) empty.notify_all();
+            return e;
+        }
+
+        void waitEmpty() {
+            std::unique_lock<std::mutex> lk(lock);
+            while (!elements.empty()) empty.wait(lk);
+        }
 };
 
-void SimplePool::do_work() {
-    bool should_continue = true;
-    while(should_continue){
-        auto task = tasks.pop();
-        should_continue = task();
-    }
-}
+class SimplePool {
+        unsigned num_workers;
+        std::vector<std::thread> workers;
+        SafeUnboundedQueue<std::function<bool()>> tasks;
 
-SimplePool::SimplePool(unsigned int num_workers) {
-    this->num_workers = num_workers;
-    for(int i = 0; i < num_workers; i++){
-        workers.emplace_back(&SimplePool::do_work, this);
-    }
-}
+        void do_work() {
+            bool cont = true;
+            while (cont) cont = tasks.pop()();
+        }
 
-SimplePool::~SimplePool() {
-    stop();
-}
+    public:
+        explicit SimplePool(unsigned n = 0) : num_workers(n) {
+            for (unsigned i = 0; i < num_workers; ++i)
+                workers.emplace_back(&SimplePool::do_work, this);
+        }
 
-template <class F, class... Args>
-void SimplePool::push(F f, Args ... args) {
-    tasks.push([f, args...]() -> bool {
-        f(args...);
-        return true;
-    });
-}
+        ~SimplePool() { stop(); }
 
-//blocks until empty
-void SimplePool::waitEmpty() {
-    tasks.waitEmpty();
-}
+        template<class F, class... Args>
+        void push(F f, Args... args) {
+            tasks.push([f, args...]() -> bool { f(args...); return true; });
+        }
 
-void SimplePool::stop() {
-    // wait until every task is gone
-    tasks.waitEmpty();
-        
-    for(int i = 0; i < num_workers; ++i){
-        tasks.push([]() -> bool { return false; });
-    }
+        void waitEmpty() { tasks.waitEmpty(); }
 
-    for(int i = 0; i < num_workers; ++i){
-        if(workers[i].joinable())
-            workers[i].join();
-    }
-}
+        void stop() {
+            tasks.waitEmpty();
+            for (unsigned i = 0; i < num_workers; ++i)
+                tasks.push([] { return false; });
+            for (unsigned i = 0; i < num_workers; ++i)
+                if (workers[i].joinable()) workers[i].join();
+        }
+};
 
 #endif
+

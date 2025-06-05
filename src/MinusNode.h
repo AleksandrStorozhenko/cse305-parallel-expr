@@ -3,37 +3,26 @@
 
 #include "Node.h"
 
-class MinusNode: public Node {
-private:
+class MinusNode : public Node {
     void on_rake_left(double x) override {
-        if(lin_frac.was_set()){
-            value = lin_frac.eval(x);
-        }
-        else{
-            // (-1 * y + x)/(0 * y + 1)  ->  x − y
-            lin_frac = LinearFractional(-1, x, 0, 1);
-        }
+        if (lin_frac.was_set()) value = lin_frac.eval(x);
+        else lin_frac = LinearFractional(-1, x, 0, 1);
     }
-
     void on_rake_right(double x) override {
-        if(lin_frac.was_set()){
-            value = lin_frac.eval(x);
-        }
-        else{
-            // (1 * y − x)/(0 * y + 1)  ->  y − x
-            lin_frac = LinearFractional(1, -x, 0, 1);
-        }
+        if (lin_frac.was_set()) value = lin_frac.eval(x);
+        else lin_frac = LinearFractional(1, -x, 0, 1);
     }
 
 public:
-    MinusNode(Node* left, Node* right) : Node(left, right) { }
+    MinusNode(const Ptr& l, const Ptr& r) : Node(l, r) {}
 
     double compute() override {
-        double first  = left->compute();
-        double second = right->compute();
+        double first = children()[0]->compute();
+        double second = children()[1]->compute();
         value = first - second;
         return *value;
     }
 };
 
 #endif
+
