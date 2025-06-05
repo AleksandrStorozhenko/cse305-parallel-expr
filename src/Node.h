@@ -71,12 +71,19 @@ public:
     void contract()
     {
         if (done.load()) return;
-        std::unique_lock lk_self(mutex, std::try_to_lock);
-        if (!lk_self.owns_lock()) return;
+        // std::unique_lock lk_self(mutex, std::try_to_lock);
+        // if (!lk_self.owns_lock()) return;
+        // std::cout<<"Own lock for node = "<<this<<std::endl;
+        std::cout<<"Inside not done contract for node = "<<this<<std::endl;
 
         if (num_children.load() == 0 && !parent.expired()) {
             auto p = parent.lock();
-            std::scoped_lock lk_par(p->mutex);
+            // lk_self.release();
+            std::cout<<"In rake; acquiring this & parent lock; this = "<<this<<"parent = "<<p<<std::endl;
+
+            std::scoped_lock lk_par(mutex, p->mutex);
+            std::cout<<"In rake; acquired; this = "<<this<<std::endl;
+
             if (is_left) {
                 p->on_rake_left(*value);
                 p->left.reset();
@@ -85,12 +92,17 @@ public:
                 p->right.reset();
             }
             p->num_children.fetch_sub(1, std::memory_order_acq_rel);
+            //delete par & sons
             done.store(true, std::memory_order_release);
         }
         else if (num_children.load() == 1 && !parent.expired()) {
             auto p = parent.lock();
             Ptr son = left ? left : right;
-            std::scoped_lock lk_other(p->mutex, son->mutex);
+
+            std::cout<<"In compress; acquiring this & parent & son lock; this = "<<this<<std::endl;
+
+            std::scoped_lock lk_other(mutex, p->mutex, son->mutex);
+            std::cout<<"In conttract; acquired; this = "<<this<<std::endl;
 
             if (p->num_children.load() == 1) {
                 p->lin_frac = p->lin_frac.compose(lin_frac);

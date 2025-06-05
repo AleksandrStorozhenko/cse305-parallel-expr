@@ -36,8 +36,12 @@ class SafeUnboundedQueue {
         }
 
         void waitEmpty() {
+
             std::unique_lock<std::mutex> lk(lock);
-            while (!elements.empty()) empty.wait(lk);
+            while (!elements.empty()){
+                std::cout<<"Waiting more for empty. size is = "<<elements.size()<<std::endl;
+                 empty.wait(lk);
+            }
         }
 };
 
