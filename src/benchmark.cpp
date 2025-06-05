@@ -88,6 +88,7 @@ int main(int argc, char* argv[])
             double val = 0.0;
             contr_sum += time_ms([&] { val = runTreeContraction(tmp, threads); });
             double tol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
+            std::cout<<val<<" "<<baselineVals[i]<<"\n";
             assert(std::fabs(baselineVals[i] - val) <= tol);
         }
         double contr_ms = contr_sum / REPS;

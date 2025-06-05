@@ -34,8 +34,12 @@ public:
 
         SimplePool pool(num_threads);
 
-        while (!root->value.has_value()) {
-            std::cout<<"Root is = "<<root<<" and doesnt have value yet!"<<std::endl;
+        while (root->degree() > 0) {
+            std::cout<<"Root is = "<<root<<" has kids: "<<root->degree()<<"\n";
+            for(auto c:root->children()){
+                std::cout<<"children: "<<c<<" is done ? "<<c->isDone()<<" has value? "<<c->value.has_value()<<"has degree? "<<c->degree()<<"\n";
+            }
+            std::cout<<std::endl;
 
             for (int i = 0; i < n; i += stride) {
                 pool.push(schedule_contract,
@@ -48,7 +52,8 @@ public:
             std::cout<<"Waiting to be empty"<<std::endl;
             pool.waitEmpty();
         }
-
+        std::cout<<"Root has value"<<root->value.has_value()<<std::endl;
+        //no need to wait
         pool.stop();
         return 0;
     }

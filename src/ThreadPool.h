@@ -71,7 +71,7 @@ class SimplePool {
         void waitEmpty() { tasks.waitEmpty(); }
 
         void stop() {
-            tasks.waitEmpty();
+            // don't wait. assume when calling stop we just need to kill the threadPool
             for (unsigned i = 0; i < num_workers; ++i)
                 tasks.push([] { return false; });
             for (unsigned i = 0; i < num_workers; ++i)

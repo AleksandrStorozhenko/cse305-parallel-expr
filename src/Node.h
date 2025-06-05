@@ -55,7 +55,7 @@ public:
 
     void set_parent(const Ptr& p) { parent = p; }
 
-    std::size_t degree() const { return num_children.load(); }
+    int degree() const { return num_children.load(); }
     bool isLeaf() const { return num_children.load() == 0; }
     bool isDone() const { return done.load(); }
 
@@ -82,6 +82,10 @@ public:
             std::cout<<"In rake; acquiring this & parent lock; this = "<<this<<"parent = "<<p<<std::endl;
 
             std::scoped_lock lk_par(mutex, p->mutex);
+            if(!isParent(p)){
+                
+                return;
+            }
             std::cout<<"In rake; acquired; this = "<<this<<std::endl;
 
             if (is_left) {
@@ -102,6 +106,9 @@ public:
             std::cout<<"In compress; acquiring this & parent & son lock; this = "<<this<<std::endl;
 
             std::scoped_lock lk_other(mutex, p->mutex, son->mutex);
+            if(!(isParent(p) & isSon(son))){
+                return;
+            }
             std::cout<<"In conttract; acquired; this = "<<this<<std::endl;
 
             if (p->num_children.load() == 1) {
@@ -121,6 +128,14 @@ public:
     }
 
     virtual double compute() = 0;
+
+    bool isParent(const Ptr& potential_parent) const {
+        return !parent.expired() && parent.lock() == potential_parent;
+    }
+
+    bool isSon(const Ptr& potential_son) const {
+        return potential_son && (left == potential_son || right == potential_son);
+    }
 };
 
 #endif
