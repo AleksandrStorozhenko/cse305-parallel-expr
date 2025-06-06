@@ -18,7 +18,6 @@ public:
         for (std::size_t i = st; i < en; ++i) {
             if (!nodes[i]->isDone()) {
                 // std::cout<<"Pushing contract for node "<<i<<std::endl;
-
                 pool.push([node = nodes[i]]() { node->contract(); });
             }
         }
@@ -26,20 +25,18 @@ public:
 
     static std::size_t TreeContract(const std::vector<Node::Ptr>& nodes,
                                     const Node::Ptr& root,
-                                    int num_threads)
+                                    int num_threads,
+                                    SimplePool& pool)
     {
-
         int n = static_cast<int>(nodes.size());
         int stride = n / num_threads + 1;
 
-        SimplePool pool(num_threads);
-
         while (root->degree() > 0) {
-            std::cout<<"Root is = "<<root<<" has kids: "<<root->degree()<<"\n";
-            for(auto c:root->children()){
-                std::cout<<"children: "<<c<<" is done ? "<<c->isDone()<<" has value? "<<c->value.has_value()<<"has degree? "<<c->degree()<<"\n";
+            // std::cout<<"Root is = "<<root<<" has kids: "<<root->degree()<<"\n";
+            for (auto c : root->children()) {
+                // std::cout<<"children: "<<c<<" is done ? "<<c->isDone()<<" has value? "<<c->value.has_value()<<" has degree? "<<c->degree()<<"\n";
             }
-            std::cout<<std::endl;
+            // std::cout<<std::endl;
 
             for (int i = 0; i < n; i += stride) {
                 pool.push(schedule_contract,
@@ -49,15 +46,12 @@ public:
                           std::ref(pool),
                           std::cref(root));
             }
-            std::cout<<"Waiting to be empty"<<std::endl;
+            // std::cout<<"Waiting to be empty"<<std::endl;
             pool.waitEmpty();
         }
-        std::cout<<"Root has value"<<root->value.has_value()<<std::endl;
-        //no need to wait
-        pool.stop();
+        // std::cout<<"Root has value "<<root->value.has_value()<<std::endl;
         return 0;
     }
 };
 
 #endif
-

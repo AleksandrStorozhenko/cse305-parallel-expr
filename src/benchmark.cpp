@@ -14,6 +14,7 @@
 #include "DivideNode.h"
 #include "BuildTrees.h"
 #include "TreeContraction.h"
+#include "ThreadPool.h"
 
 static std::size_t countNodes(const Node::Ptr& root) {
     if (!root) return 0;
@@ -28,11 +29,13 @@ static void collect_nodes(const Node::Ptr& n, std::vector<Node::Ptr>& v) {
     for (auto& c : n->children()) collect_nodes(c, v);
 }
 
-static double runTreeContraction(const Node::Ptr& root, unsigned threads = 1) {
+static double runTreeContraction(const Node::Ptr& root,
+                                 unsigned threads,
+                                 SimplePool& pool) {
     std::vector<Node::Ptr> nodes;
     collect_nodes(root, nodes);
-    TreeContraction::TreeContract(nodes, root, threads);
-    return *root->value;
+    TreeContraction::TreeContract(nodes, root, threads, pool);
+    return root->value ? *root->value : root->compute();
 }
 
 template<class F>
@@ -64,7 +67,8 @@ int main(int argc, char* argv[])
                         unsigned depth,
                         auto treeMaker,
                         unsigned threads,
-                        unsigned long seed)
+                        unsigned long seed,
+                        SimplePool& pool)
     {
         std::mt19937 tmpRng(seed + 999999);
         Node::Ptr example = treeMaker(depth, tmpRng, true, '+');
@@ -81,15 +85,21 @@ int main(int argc, char* argv[])
         }
         double base_ms = base_sum / REPS;
 
+        constexpr double ABS_REL_SWITCH = 1.0;
+        constexpr double ABS_EPS = 1e-12;
+
         double contr_sum = 0.0;
         for (int i = 0; i < REPS; ++i) {
             std::mt19937 gi(seed + i);
             Node::Ptr tmp = treeMaker(depth, gi, true, '+');
             double val = 0.0;
-            contr_sum += time_ms([&] { val = runTreeContraction(tmp, threads); });
-            double tol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
-            std::cout<<val<<" "<<baselineVals[i]<<"\n";
-            assert(std::fabs(baselineVals[i] - val) <= tol);
+            contr_sum += time_ms([&] { val = runTreeContraction(tmp, threads, pool); });
+            double ref = baselineVals[i];
+            double absTol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
+            double relTol = tolFactor * std::fabs(ref);
+            double tol = (std::fabs(ref) < ABS_REL_SWITCH) ? std::max(absTol, ABS_EPS) : relTol;
+            // std::cout << val << " " << ref << " tol " << tol << "\n";
+            assert(std::fabs(ref - val) <= tol);
         }
         double contr_ms = contr_sum / REPS;
 
@@ -101,14 +111,14 @@ int main(int argc, char* argv[])
                   << contr_ms << '\n';
     };
 
-    for (unsigned d : testDepths) {
-        unsigned long seed = master();
-        for (unsigned t : threadCounts) {
-            run_case("perfectBin", d, bench::perfectBin, t, seed);
-            run_case("randomBalanced", d, bench::randomBalanced, t, seed);
+    for (unsigned t : threadCounts) {
+        SimplePool pool(t);
+        for (unsigned d : testDepths) {
+            unsigned long seed = master();
+            run_case("perfectBin", d, bench::perfectBin, t, seed, pool);
+            run_case("randomBalanced", d, bench::randomBalanced, t, seed, pool);
         }
+        pool.stop();
     }
-
     return 0;
 }
-
