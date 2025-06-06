@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
                         unsigned long seed,
                         SimplePool& pool)
     {
-        bool mixOps = (depth <= 16); // overflow fix
+        bool mixOps = (depth <= 21); // overflow fix
         std::mt19937 tmpRng(seed + 999999);
         Node::Ptr example = treeMaker(depth, tmpRng, mixOps, '+');
         std::size_t n_nodes = countNodes(example);

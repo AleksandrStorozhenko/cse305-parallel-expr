@@ -27,7 +27,7 @@ inline char pickOp(std::mt19937& g)
     return ops[ std::uniform_int_distribution<int>(0,2)(g) ];
 }
 
-inline double randLeaf(std::mt19937& g, double lo = 1.0, double hi = 10.0)
+inline double randLeaf(std::mt19937& g, double lo = 1.0, double hi = 2.0)
 {
     return std::uniform_real_distribution<double>(lo, hi)(g);
 }
