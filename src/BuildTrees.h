@@ -62,6 +62,24 @@ inline Node::Ptr randomBalanced(unsigned depth, std::mt19937& g,
     return n;
 }
 
-} // namespace bench
+// can choose whether we want left or right chain
+inline Node::Ptr longSkewed(unsigned depth, std::mt19937& g,
+                            bool mixOps  = true, char fixedOp = '+', bool leftHeavy = true)
+{
+    if (depth == 0)
+        return std::make_shared<ValueNode>(randLeaf(g));
+
+    auto inner = longSkewed(depth - 1, g, mixOps, fixedOp, leftHeavy);
+    auto leaf  = std::make_shared<ValueNode>(randLeaf(g));
+
+    Node::Ptr l =  leftHeavy ? inner : leaf;
+    Node::Ptr r =  leftHeavy ? leaf  : inner;
+
+    auto n = makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
+    link(n, l); link(n, r);
+    return n;
+}
+
+}
 #endif
 
