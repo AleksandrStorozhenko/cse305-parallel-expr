@@ -16,7 +16,7 @@ public:
                                   const Node::Ptr& root)
     {
         for (std::size_t i = st; i < en; ++i) {
-            if (!nodes[i]->isDone()) {
+            if (nodes[i] && !nodes[i]->isDone()) {
                 // std::cout<<"Pushing contract for node "<<i<<std::endl;
                 pool.push([node = nodes[i]]() { node->contract(); });
             }

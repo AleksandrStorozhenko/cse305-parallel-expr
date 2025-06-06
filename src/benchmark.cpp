@@ -52,12 +52,12 @@ int main(int argc, char* argv[])
     const double tolFactor = (argc > 2) ? std::stod(argv[2]) : 1e-6;
     const double tolExp = (argc > 3) ? std::stod(argv[3]) : 1.0001;
 
-    std::vector<unsigned> testDepths{2, 6, 9, 12};
+    std::vector<unsigned> testDepths{2, 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
 
     const unsigned HW_THREADS =
         std::thread::hardware_concurrency() ? std::thread::hardware_concurrency() : 1;
     std::vector<unsigned> threadCounts;
-    for (unsigned v = 1; v <= HW_THREADS; v <<= 1) threadCounts.push_back(v);
+    for (unsigned v = 1; v <= HW_THREADS * 2; v <<= 1) threadCounts.push_back(v);
     if (threadCounts.back() != HW_THREADS) threadCounts.push_back(HW_THREADS);
 
     std::mt19937 master(42);
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
             double absTol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
             double relTol = tolFactor * std::fabs(ref);
             double tol = (std::fabs(ref) < ABS_REL_SWITCH) ? std::max(absTol, ABS_EPS) : relTol;
-            // std::cout << val << " " << ref << " tol " << tol << "\n";
+            std::cerr<<ref<<" "<<val<<std::endl;
             assert(std::fabs(ref - val) <= tol);
         }
         double contr_ms = contr_sum / REPS;
