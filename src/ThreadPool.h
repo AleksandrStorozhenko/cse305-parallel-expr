@@ -36,12 +36,8 @@ class SafeUnboundedQueue {
         }
 
         void waitEmpty() {
-
             std::unique_lock<std::mutex> lk(lock);
-            while (!elements.empty()){
-                // std::cout<<"Waiting more for empty. size is = "<<elements.size()<<std::endl;
-                empty.wait(lk);
-            }
+            while (!elements.empty()) empty.wait(lk);
         }
 };
 
@@ -50,9 +46,22 @@ class SimplePool {
         std::vector<std::thread> workers;
         SafeUnboundedQueue<std::function<bool()>> tasks;
 
+        // track tasks that have been popped but not finished
+        std::atomic<std::size_t> active{0};
+        std::mutex idle_mtx;
+        std::condition_variable idle_cv;
+
         void do_work() {
             bool cont = true;
-            while (cont) cont = tasks.pop()();
+            while (cont) {
+                auto task = tasks.pop();
+                active.fetch_add(1, std::memory_order_acq_rel);
+                cont = task();
+                if (active.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+                    std::lock_guard<std::mutex> lk(idle_mtx);
+                    idle_cv.notify_all();
+                }
+            }
         }
 
     public:
@@ -70,12 +79,19 @@ class SimplePool {
 
         void waitEmpty() { tasks.waitEmpty(); }
 
+        // queue empty and no active tasks
+        void waitIdle() {
+            tasks.waitEmpty();
+            std::unique_lock<std::mutex> lk(idle_mtx);
+            idle_cv.wait(lk, [&]{ return active.load() == 0; });
+        }
+
         void stop() {
-            // don't wait. assume when calling stop we just need to kill the threadPool
+            waitIdle(); // better shutdown
             for (unsigned i = 0; i < num_workers; ++i)
                 tasks.push([] { return false; });
-            for (unsigned i = 0; i < num_workers; ++i)
-                if (workers[i].joinable()) workers[i].join();
+            for (auto& w : workers)
+                if (w.joinable()) w.join();
         }
 };
 

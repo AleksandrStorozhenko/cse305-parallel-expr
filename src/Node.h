@@ -30,6 +30,13 @@ protected:
     virtual void on_rake_left(double) = 0;
     virtual void on_rake_right(double) = 0;
 
+    // helpers for race‐free contraction
+    bool singleChildIsDone() const {
+        Ptr son = left ? left : right;
+        return son && son->isDone();
+    }
+    bool readyToRake() const noexcept { return value.has_value(); }
+
 public:
     std::optional<double> value;
 
@@ -71,23 +78,11 @@ public:
     void contract()
     {
         if (done.load()) return;
-        // std::unique_lock lk_self(mutex, std::try_to_lock);
-        // if (!lk_self.owns_lock()) return;
-        // std::cout<<"Own lock for node = "<<this<<std::endl;
-        //std::cout<<"Inside not done contract for node = "<<this<<std::endl;
 
-        if (num_children.load() == 0 && !parent.expired()) {
+        if (num_children.load() == 0 && readyToRake() && !parent.expired()) {
             auto p = parent.lock();
-            // lk_self.release();
-            //std::cout<<"In rake; acquiring this & parent lock; this = "<<this<<"parent = "<<p<<std::endl;
-
             std::scoped_lock lk_par(mutex, p->mutex);
-
-            if(!(isParent(p) && num_children.load() == 0 && p->degree() >= 1 && !isDone())){
-                return;
-            }
-            //std::cout<<"In rake; acquired; this = "<<this<<std::endl;
-
+            if(!(isParent(p) && num_children.load() == 0 && p->degree() >= 1 && !isDone())) return;
             if (is_left) {
                 p->on_rake_left(*value);
                 p->left.reset();
@@ -96,24 +91,14 @@ public:
                 p->right.reset();
             }
             p->num_children.fetch_sub(1);
-            //std::cout<<"P now has "<<p->num_children.load()<<std::endl;
             done.store(true);
         }
-        else if (num_children.load() == 1 && !parent.expired() && parent.lock()->num_children.load() == 1) {
+        else if (num_children.load() == 1 && singleChildIsDone() && !parent.expired() && parent.lock()->num_children.load() == 1) {
             auto p = parent.lock();
             Ptr son = left ? left : right;
-
-            //std::cout<<"In compress; acquiring this & parent & son lock; this = "<<this<<std::endl;
-
             std::scoped_lock lk_other(mutex, p->mutex, son->mutex);
-
-            if(!(isParent(p) && isSon(son) && degree() == 1 && p->degree() == 1 && !isDone())){
-                return;
-            }
-            //std::cout<<"In conttract; acquired; this = "<<this<<std::endl;
-
+            if(!(isParent(p) && isSon(son) && degree() == 1 && p->degree() == 1 && !isDone())) return;
             p->lin_frac = p->lin_frac.compose(lin_frac);
-
             if (is_left) {
                 p->left = son;
                 son->is_left = true;
@@ -122,12 +107,9 @@ public:
                 son->is_left = false;
             }
             son->parent = p;
-
             num_children.fetch_sub(1);
             done.store(true);
-        
         }
-        //std::cout<<"Node has deg = "<<num_children.load()<<std::endl;
     }
 
     virtual double compute() = 0;
