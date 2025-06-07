@@ -35,6 +35,7 @@ static double runTreeContraction(const Node::Ptr& root,
     std::vector<Node::Ptr> nodes;
     collect_nodes(root, nodes);
     TreeContraction::TreeContract(nodes, root, threads, pool);
+    assert(root->value.has_value());
     return root->value ? *root->value : root->compute();
 }
 
@@ -95,11 +96,12 @@ int main(int argc, char* argv[])
             Node::Ptr tmp = treeMaker(depth, gi, mixOps, '+');
             double val = 0.0;
             contr_sum += time_ms([&] { val = runTreeContraction(tmp, threads, pool); });
+            pool.waitIdle();
             double ref = baselineVals[i];
             double absTol = tolFactor * std::pow(static_cast<double>(n_nodes), tolExp);
             double relTol = tolFactor * std::fabs(ref);
             double tol = (std::fabs(ref) < ABS_REL_SWITCH) ? std::max(absTol, ABS_EPS) : relTol;
-            std::cerr << ref << " " << val << std::endl;
+            // std::cerr << ref << " " << val << std::endl;
             assert(std::fabs(ref - val) <= tol);
         }
         double contr_ms = contr_sum / REPS;
