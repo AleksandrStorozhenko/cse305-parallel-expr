@@ -17,6 +17,8 @@
 #include "TreeContraction.h"
 #include "ThreadPool.h"
 
+const int MAX_NODES = 4'000'000;
+
 static double expected_nodes(unsigned depth, double s) { // s is sparsity
     if (s <= 0.0) return std::pow(2.0, depth + 1) - 1.0;
     if (s >= 1.0) return 2.0 * depth + 1.0;
@@ -67,20 +69,9 @@ static inline bool isFinite(double x) { return std::isfinite(x); }
 
 int main(int argc, char* argv[])
 {
-    const int REPS = (argc > 1) ? std::stoi(argv[1]) : 10;
+    const int REPS = (argc > 1) ? std::stoi(argv[1]) : 5;
     const double tolFactor = (argc > 2) ? std::stod(argv[2]) : 1e-6;
     const double tolExp = (argc > 3) ? std::stod(argv[3]) : 1.0001;
-
-    std::vector<unsigned> testDepths;
-    for (unsigned d = 5; d <= 27; ++d) testDepths.push_back(d);
-
-    // sparsities - expected size grows roughly linearly
-    std::vector<double> sparsities;
-    for (int i = 0; i <= 7; ++i) {
-        double branch = 2.0 - i * 0.1;
-        double s = 1.0 - std::sqrt(branch - 1.0);
-        sparsities.push_back(s);
-    }
 
     const unsigned HW_THREADS =
         std::thread::hardware_concurrency() ? std::thread::hardware_concurrency() : 1;
@@ -99,7 +90,12 @@ int main(int argc, char* argv[])
                         SimplePool& pool)
     {
         bool mixOps = true;
-        
+        double exp_nodes = expected_nodes(depth, sparsity);
+
+        if(exp_nodes > MAX_NODES){
+            return;
+        }
+
         auto makeTree = [&](unsigned d, std::mt19937& rng, bool mix, char op) {
             return (sparsity == 0.0)
                    ? bench::perfectBin(d, rng, mix, op)
@@ -109,7 +105,6 @@ int main(int argc, char* argv[])
         std::mt19937 tmpRng(seed + 999999);
         Node::Ptr sample = makeTree(depth, tmpRng, mixOps, '+');
         std::size_t n_nodes = countNodes(sample);
-        double exp_nodes = expected_nodes(depth, sparsity);
 
         std::vector<double> baselineVals(REPS);
         double base_sum = 0.0;
@@ -149,14 +144,33 @@ int main(int argc, char* argv[])
                   << n_nodes << ','
                   << base_us << ','
                   << contr_us << ','
-                  << speedup << '\n';
+                  << speedup << std::endl;
     };
+
+    std::vector<unsigned> smallDepths;
+    for (unsigned d = 5; d <= 22; ++d) smallDepths.push_back(d);
+
+    std::vector<unsigned> bigDepths;
+    for (unsigned d = 50'000; d <= MAX_NODES; d += 50'000) bigDepths.push_back(d);
+
+    // sparsities - expected size grows roughly linearly
+    std::vector<double> sparsities;
+    for (int i = 0; i <= 7; ++i) {
+        double branch = 2.0 - i * 0.1;
+        double s = 1.0 - std::sqrt(branch - 1.0);
+        sparsities.push_back(s);
+    }
 
     for (unsigned t : threadCounts) {
         SimplePool pool(t);
-        for (unsigned d : testDepths) {
+        for (unsigned d : smallDepths) {
             unsigned long seed = master();
-            for (double s : sparsities) run_case(s, d, t, seed, pool);
+            for (double s : {0}) run_case(s, d, t, seed, pool);
+        }
+
+        for (unsigned d : bigDepths) {
+            unsigned long seed = master();
+            for (double s : {1}) run_case(s, d, t, seed, pool);
         }
         pool.stop();
     }
