@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX = g++
-CFLAGS = -pthread -std=c++17 -Wall -g -O0 -fsanitize=address
+CFLAGS = -pthread -std=c++20 -Wall -g -O0 -fsanitize=address
 RELEASE_FLAGS = -pthread -std=c++17 -Wall -DNDEBUG -O2
 
 # Directories
