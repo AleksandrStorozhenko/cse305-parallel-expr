@@ -62,19 +62,43 @@ inline Node::Ptr randomBalanced(unsigned depth, std::mt19937& g,
     return n;
 }
 
-// can choose whether we want left or right chain
-inline Node::Ptr longSkewed(unsigned depth, std::mt19937& g,
-                            bool mixOps  = true, char fixedOp = '+', bool leftHeavy = true)
+inline Node::Ptr longSkewed(unsigned depth, std::mt19937& g, bool mixOps = true, char fixedOp = '+', bool leftHeavy = true)
 {
     if (depth == 0)
         return std::make_shared<ValueNode>(randLeaf(g));
 
     auto inner = longSkewed(depth - 1, g, mixOps, fixedOp, leftHeavy);
-    auto leaf  = std::make_shared<ValueNode>(randLeaf(g));
+    auto leaf = std::make_shared<ValueNode>(randLeaf(g));
 
-    Node::Ptr l =  leftHeavy ? inner : leaf;
-    Node::Ptr r =  leftHeavy ? leaf  : inner;
+    Node::Ptr l = leftHeavy ? inner : leaf;
+    Node::Ptr r = leftHeavy ? leaf : inner;
 
+    auto n = makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
+    link(n, l); link(n, r);
+    return n;
+}
+
+// sparsity-aware generator (acts as full benchmark generator)
+inline Node::Ptr sparseBin(unsigned depth, double sparsity, std::mt19937& g,
+                            bool mixOps = true, char fixedOp = '+')
+{
+    if (sparsity <= 0.0) return perfectBin(depth, g, mixOps, fixedOp); // fast perfect
+    if (sparsity >= 1.0) {
+        bool leftHeavy = std::uniform_int_distribution<int>(0, 1)(g);
+        return longSkewed(depth, g, mixOps, fixedOp, leftHeavy); // chain path
+    }
+    if (depth == 0) return std::make_shared<ValueNode>(randLeaf(g));
+    std::bernoulli_distribution recurse(1.0 - sparsity);
+    bool leftRec = recurse(g);
+    bool rightRec = recurse(g);
+    if (!leftRec && !rightRec) {
+        if (std::uniform_int_distribution<int>(0, 1)(g)) leftRec = true;
+        else rightRec = true;
+    }
+    auto l = leftRec ? sparseBin(depth - 1, sparsity, g, mixOps, fixedOp)
+                     : std::make_shared<ValueNode>(randLeaf(g));
+    auto r = rightRec ? sparseBin(depth - 1, sparsity, g, mixOps, fixedOp)
+                      : std::make_shared<ValueNode>(randLeaf(g));
     auto n = makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
     link(n, l); link(n, r);
     return n;
@@ -82,4 +106,3 @@ inline Node::Ptr longSkewed(unsigned depth, std::mt19937& g,
 
 }
 #endif
-
