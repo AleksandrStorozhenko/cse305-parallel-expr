@@ -63,7 +63,7 @@ double time_us(F&& f) {
     return std::chrono::duration<double, std::micro>(t1 - t0).count();
 }
 
-static inline bool isFinite(double x) { return std::isfinite(x); } // check finiteness
+static inline bool isFinite(double x) { return std::isfinite(x); }
 
 int main(int argc, char* argv[])
 {
@@ -71,7 +71,8 @@ int main(int argc, char* argv[])
     const double tolFactor = (argc > 2) ? std::stod(argv[2]) : 1e-6;
     const double tolExp = (argc > 3) ? std::stod(argv[3]) : 1.0001;
 
-    std::vector<unsigned> testDepths{2, 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
+    std::vector<unsigned> testDepths;
+    for (unsigned d = 5; d <= 27; ++d) testDepths.push_back(d);
 
     // sparsities - expected size grows roughly linearly
     std::vector<double> sparsities;
