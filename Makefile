@@ -41,3 +41,9 @@ $(BUILDDIR):
 # Clean
 clean:
 	rm -rf $(BUILDDIR) eval bench
+
+run_eval: eval
+	ulimit -s unlimited && ./eval
+
+run_bench: bench
+	ulimit -s unlimited && ./bench
