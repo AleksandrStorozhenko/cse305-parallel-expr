@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
 
     // sparsities - expected size grows roughly linearly
     std::vector<double> sparsities;
-    for (int i = 0; i <= 10; ++i) {
+    for (int i = 0; i <= 7; ++i) {
         double branch = 2.0 - i * 0.1;
         double s = 1.0 - std::sqrt(branch - 1.0);
         sparsities.push_back(s);
