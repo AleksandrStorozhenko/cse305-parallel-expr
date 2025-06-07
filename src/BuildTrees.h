@@ -3,6 +3,9 @@
 
 #include <random>
 #include <cassert>
+#include <functional>
+#include <vector>
+#include <cstdint>
 #include "ValueNode.h"
 #include "PlusNode.h"
 #include "MultiplyNode.h"
@@ -24,7 +27,7 @@ inline Node::Ptr makeOp(char op, const Node::Ptr& l, const Node::Ptr& r)
 inline char pickOp(std::mt19937& g)
 {
     static const char ops[3] = {'+', '*', '/'};
-    return ops[ std::uniform_int_distribution<int>(0,2)(g) ];
+    return ops[ std::uniform_int_distribution<int>(0, 2)(g) ];
 }
 
 inline double randLeaf(std::mt19937& g, double lo = 1.0, double hi = 2.0)
@@ -64,8 +67,7 @@ inline Node::Ptr randomBalanced(unsigned depth, std::mt19937& g,
 
 inline Node::Ptr longSkewed(unsigned depth, std::mt19937& g, bool mixOps = true, char fixedOp = '+', bool leftHeavy = true)
 {
-    if (depth == 0)
-        return std::make_shared<ValueNode>(randLeaf(g));
+    if (depth == 0) return std::make_shared<ValueNode>(randLeaf(g));
 
     auto inner = longSkewed(depth - 1, g, mixOps, fixedOp, leftHeavy);
     auto leaf = std::make_shared<ValueNode>(randLeaf(g));
@@ -78,30 +80,75 @@ inline Node::Ptr longSkewed(unsigned depth, std::mt19937& g, bool mixOps = true,
     return n;
 }
 
-// sparsity-aware generator (acts as full benchmark generator)
+// speedup: we batch the bernoullis inside (8 per int)
+class BatchBernoulli {
+public:
+    BatchBernoulli(std::mt19937& rng, double p)
+        : g(rng),
+          thresh(static_cast<uint8_t>(p * 255.0)),
+          buf(0),
+          bytesLeft(0) {}
+    bool next() {
+        if (bytesLeft == 0) {
+            buf = (static_cast<uint64_t>(g()) << 32) | g();
+            bytesLeft = 8;
+        }
+        uint8_t b = static_cast<uint8_t>(buf & 0xFF);
+        buf >>= 8;
+        --bytesLeft;
+        return b < thresh;
+    }
+private:
+    std::mt19937& g;
+    uint8_t thresh;
+    uint64_t buf;
+    int bytesLeft;
+};
+
+// sparseBin: decide-first/allocate-later generator
 inline Node::Ptr sparseBin(unsigned depth, double sparsity, std::mt19937& g,
-                            bool mixOps = true, char fixedOp = '+')
+                           bool mixOps = true, char fixedOp = '+')
 {
-    if (sparsity <= 0.0) return perfectBin(depth, g, mixOps, fixedOp); // fast perfect
+    if (sparsity <= 0.0) return perfectBin(depth, g, mixOps, fixedOp); // perfect
     if (sparsity >= 1.0) {
         bool leftHeavy = std::uniform_int_distribution<int>(0, 1)(g);
-        return longSkewed(depth, g, mixOps, fixedOp, leftHeavy); // chain path
+        return longSkewed(depth, g, mixOps, fixedOp, leftHeavy); // chain
     }
     if (depth == 0) return std::make_shared<ValueNode>(randLeaf(g));
-    std::bernoulli_distribution recurse(1.0 - sparsity);
-    bool leftRec = recurse(g);
-    bool rightRec = recurse(g);
-    if (!leftRec && !rightRec) {
-        if (std::uniform_int_distribution<int>(0, 1)(g)) leftRec = true;
-        else rightRec = true;
+
+    BatchBernoulli coin(g, 1.0 - sparsity);
+
+    std::vector<uint8_t> masks;
+    masks.reserve((1u << depth) - 1);
+
+    struct Item { unsigned d; };
+    std::vector<Item> st;
+    st.push_back({depth});
+    while (!st.empty()) {
+        unsigned d = st.back().d;
+        st.pop_back();
+        if (d == 0) continue;
+        bool L = coin.next();
+        bool R = coin.next();
+        if (!L && !R) { if (coin.next()) L = true; else R = true; }
+        masks.push_back((L ? 1 : 0) | (R ? 2 : 0));
+        if (R) st.push_back({d - 1});
+        if (L) st.push_back({d - 1});
     }
-    auto l = leftRec ? sparseBin(depth - 1, sparsity, g, mixOps, fixedOp)
-                     : std::make_shared<ValueNode>(randLeaf(g));
-    auto r = rightRec ? sparseBin(depth - 1, sparsity, g, mixOps, fixedOp)
-                      : std::make_shared<ValueNode>(randLeaf(g));
-    auto n = makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
-    link(n, l); link(n, r);
-    return n;
+
+    std::size_t idx = 0;
+    std::function<Node::Ptr(unsigned)> build = [&](unsigned d) -> Node::Ptr {
+        if (d == 0) return std::make_shared<ValueNode>(randLeaf(g));
+        uint8_t m = masks[idx++];
+        bool L = m & 1;
+        bool R = m & 2;
+        Node::Ptr l = L ? build(d - 1) : std::make_shared<ValueNode>(randLeaf(g));
+        Node::Ptr r = R ? build(d - 1) : std::make_shared<ValueNode>(randLeaf(g));
+        auto n = makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
+        link(n, l); link(n, r);
+        return n;
+    };
+    return build(depth);
 }
 
 }
