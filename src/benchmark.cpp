@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip> // to compute and output speedup
 #include <chrono>
 #include <random>
 #include <vector>
@@ -15,6 +16,18 @@
 #include "BuildTrees.h"
 #include "TreeContraction.h"
 #include "ThreadPool.h"
+
+// analytic expectation of node count
+static double expected_nodes(unsigned depth, double s) { // s is sparsity
+    if (s <= 0.0) return std::pow(2.0, depth + 1) - 1.0;
+    if (s >= 1.0) return 2.0 * depth + 1.0;
+    const double recurse = 2.0 - 2.0 * s + s * s; // expected num.children that recurse
+    const double leaves = 2.0 * s - s * s; // expected num. leaf children
+    double E = 1.0; // depth=0
+    for (unsigned d = 1; d <= depth; ++d)
+        E = 1.0 + recurse * E + leaves;
+    return E;
+}
 
 static std::size_t countNodes(const Node::Ptr& root) {
     if (!root) return 0;
@@ -39,7 +52,7 @@ static double runTreeContraction(const Node::Ptr& root,
 }
 
 template<class F>
-double time_us(F&& f) { // micro-second timer
+double time_us(F&& f) {
     auto t0 = std::chrono::high_resolution_clock::now();
     f();
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -54,9 +67,13 @@ int main(int argc, char* argv[])
 
     std::vector<unsigned> testDepths{2, 6, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
 
-    // sparsities 0.0–0.7 and 1.0 (skip 0.8,0.9)
+    // sparsities - expected size grows roughly linearly
     std::vector<double> sparsities;
-    for (int i = 0; i <= 10; ++i) if (i != 8 && i != 9) sparsities.push_back(i * 0.1);
+    for (int i = 0; i <= 10; ++i) {
+        double branch = 2.0 - i * 0.1;
+        double s = 1.0 - std::sqrt(branch - 1.0);
+        sparsities.push_back(s);
+    }
 
     const unsigned HW_THREADS =
         std::thread::hardware_concurrency() ? std::thread::hardware_concurrency() : 1;
@@ -65,9 +82,10 @@ int main(int argc, char* argv[])
     if (threadCounts.back() != HW_THREADS) threadCounts.push_back(HW_THREADS);
 
     std::mt19937 master(42);
-    std::cout << "sparsity,depth,threads,n_nodes,baseline_us,contraction_us\n";
+    std::cout << "sparsity,depth,threads,expected_nodes,n_nodes,baseline_us,contraction_us,speedup\n";
+    std::cout << std::fixed << std::setprecision(3);
 
-    auto run_case = [&](double sparsity, // new key
+    auto run_case = [&](double sparsity,
                         unsigned depth,
                         unsigned threads,
                         unsigned long seed,
@@ -82,8 +100,9 @@ int main(int argc, char* argv[])
         };
 
         std::mt19937 tmpRng(seed + 999999);
-        Node::Ptr example = makeTree(depth, tmpRng, mixOps, '+');
-        std::size_t n_nodes = countNodes(example);
+        Node::Ptr sample = makeTree(depth, tmpRng, mixOps, '+');
+        std::size_t n_nodes = countNodes(sample);
+        double exp_nodes = expected_nodes(depth, sparsity);
 
         std::vector<double> baselineVals(REPS);
         double base_sum = 0.0;
@@ -112,13 +131,16 @@ int main(int argc, char* argv[])
             assert(std::fabs(ref - val) <= tol);
         }
         double contr_us = contr_sum / REPS;
+        double speedup = base_us / contr_us;
 
         std::cout << sparsity << ','
                   << depth << ','
                   << threads << ','
+                  << exp_nodes << ','
                   << n_nodes << ','
                   << base_us << ','
-                  << contr_us << '\n';
+                  << contr_us << ','
+                  << speedup << '\n';
     };
 
     for (unsigned t : threadCounts) {
