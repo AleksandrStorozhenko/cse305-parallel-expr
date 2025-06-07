@@ -8,6 +8,7 @@
 #include <queue>
 #include <functional>
 #include <atomic>
+#include <unistd.h>
 
 template<class E>
 class SafeUnboundedQueue {
@@ -55,9 +56,9 @@ class SimplePool {
             bool cont = true;
             while (cont) {
                 auto task = tasks.pop();
-                active.fetch_add(1, std::memory_order_acq_rel);
+                active.fetch_add(1);
                 cont = task();
-                if (active.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+                if (active.fetch_sub(1) == 1) {
                     std::lock_guard<std::mutex> lk(idle_mtx);
                     idle_cv.notify_all();
                 }
@@ -84,6 +85,7 @@ class SimplePool {
             tasks.waitEmpty();
             std::unique_lock<std::mutex> lk(idle_mtx);
             idle_cv.wait(lk, [&]{ return active.load() == 0; });
+            // usleep(10000);
         }
 
         void stop() {
