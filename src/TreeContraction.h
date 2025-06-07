@@ -18,7 +18,7 @@ public:
         }
     }
 
-    static std::size_t TreeContract(const std::vector<Node::Ptr>& nodes,
+    static void TreeContract(const std::vector<Node::Ptr>& nodes,
                                     const Node::Ptr& root,
                                     int num_threads,
                                     SimplePool& pool)
@@ -36,7 +36,6 @@ public:
                           std::ref(ltch));
             ltch.wait();
         }
-        return 0;
     }
 };
 
