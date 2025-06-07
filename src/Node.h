@@ -81,6 +81,8 @@ public:
 
         if (num_children.load() == 0 && readyToRake() && !parent.expired()) {
             auto p = parent.lock();
+            if(!p)
+                return;
             std::scoped_lock lk_par(mutex, p->mutex);
             if(!(isParent(p) && num_children.load() == 0 && p->degree() >= 1 && !isDone())) return;
             if (is_left) {
@@ -95,7 +97,11 @@ public:
         }
         else if (num_children.load() == 1 && singleChildIsDone() && !parent.expired() && parent.lock()->num_children.load() == 1) {
             auto p = parent.lock();
+            if(!p)
+                return;
             Ptr son = left ? left : right;
+            if(!son)
+                return;
             std::scoped_lock lk_other(mutex, p->mutex, son->mutex);
             if(!(isParent(p) && isSon(son) && degree() == 1 && p->degree() == 1 && !isDone())) return;
             p->lin_frac = p->lin_frac.compose(lin_frac);

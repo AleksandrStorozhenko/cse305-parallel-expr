@@ -44,9 +44,13 @@ static void collect_nodes(const Node::Ptr& n, std::vector<Node::Ptr>& v) {
 
 static double runTreeContraction(const Node::Ptr& root,
                                  unsigned threads,
-                                 SimplePool& pool) {
+                                 SimplePool& pool,
+                                 unsigned long seed = 0) {
     std::vector<Node::Ptr> nodes;
     collect_nodes(root, nodes);
+    std::mt19937 rng(seed ? seed : 0x9e3779b97f4a7c15ULL);
+    if (nodes.size() > 1)
+        std::shuffle(nodes.begin() + 1, nodes.end(), rng);
     TreeContraction::TreeContract(nodes, root, threads, pool);
     return root->value ? *root->value : root->compute();
 }
