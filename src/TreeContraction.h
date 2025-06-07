@@ -29,8 +29,11 @@ public:
                           std::cref(nodes),
                           static_cast<std::size_t>(i),
                           static_cast<std::size_t>(std::min(i + stride, n)));
-            pool.waitIdle(); // stronger barrier
+                          
+            pool.waitEmpty(); 
+
         }
+        pool.waitIdle();
         return 0;
     }
 };

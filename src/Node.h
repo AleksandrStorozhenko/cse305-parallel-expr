@@ -97,7 +97,10 @@ public:
             auto p = parent.lock();
             Ptr son = left ? left : right;
             std::scoped_lock lk_other(mutex, p->mutex, son->mutex);
+            
+            //validate
             if(!(isParent(p) && isSon(son) && degree() == 1 && p->degree() == 1 && !isDone())) return;
+           
             p->lin_frac = p->lin_frac.compose(lin_frac);
             if (is_left) {
                 p->left = son;
