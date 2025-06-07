@@ -51,6 +51,7 @@ static double runTreeContraction(const Node::Ptr& root,
     if (nodes.size() > 1)
         std::shuffle(nodes.begin() + 1, nodes.end(), rng);
     TreeContraction::TreeContract(nodes, root, threads, pool);
+    pool.waitIdle();
     return root->value ? *root->value : root->compute();
 }
 
@@ -83,7 +84,7 @@ int main(int argc, char* argv[])
     const unsigned HW_THREADS =
         std::thread::hardware_concurrency() ? std::thread::hardware_concurrency() : 1;
     std::vector<unsigned> threadCounts;
-    for (unsigned v = 2; v <= HW_THREADS * 2; v <<= 1) threadCounts.push_back(v);
+    for (unsigned v = HW_THREADS; v <= HW_THREADS * 2; v <<= 1) threadCounts.push_back(v);
     if (threadCounts.back() != HW_THREADS) threadCounts.push_back(HW_THREADS);
 
     std::mt19937 master(42);

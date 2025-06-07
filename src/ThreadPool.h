@@ -12,6 +12,7 @@
 
 template<class E>
 class SafeUnboundedQueue {
+    private:
         std::queue<E> elements;
         std::mutex lock;
         std::condition_variable not_empty;
@@ -40,6 +41,7 @@ class SafeUnboundedQueue {
             std::unique_lock<std::mutex> lk(lock);
             while (!elements.empty()) empty.wait(lk);
         }
+        bool isEmpty() const { return elements.empty(); }
 };
 
 class SimplePool {
@@ -51,7 +53,7 @@ class SimplePool {
         std::atomic<std::size_t> active{0};
         std::mutex idle_mtx;
         std::condition_variable idle_cv;
-
+        
         void do_work() {
             bool cont = true;
             while (cont) {
@@ -66,6 +68,8 @@ class SimplePool {
         }
 
     public:
+        std::mutex owner;
+        
         explicit SimplePool(unsigned n = 0) : num_workers(n) {
             for (unsigned i = 0; i < num_workers; ++i)
                 workers.emplace_back(&SimplePool::do_work, this);
@@ -82,10 +86,11 @@ class SimplePool {
 
         // queue empty and no active tasks
         void waitIdle() {
-            tasks.waitEmpty();
             std::unique_lock<std::mutex> lk(idle_mtx);
-            idle_cv.wait(lk, [&]{ return active.load() == 0; });
-            // usleep(10000);
+            while(!(active.load() == 0 && tasks.isEmpty())){
+                tasks.waitEmpty();
+                idle_cv.wait(lk);
+            }
         }
 
         void stop() {
