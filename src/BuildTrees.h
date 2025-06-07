@@ -38,7 +38,7 @@ inline double randLeaf(std::mt19937& g, double lo = 1.0, double hi = 2.0)
 inline void link(Node::Ptr p, const Node::Ptr& c) { if (c) c->set_parent(p); }
 
 inline Node::Ptr perfectBin(unsigned depth, std::mt19937& g,
-                            bool mixOps = false, char fixedOp = '+')
+                            bool mixOps = true, char fixedOp = '+')
 {
     if (depth == 0) return std::make_shared<ValueNode>(randLeaf(g));
     auto l = perfectBin(depth - 1, g, mixOps, fixedOp);
