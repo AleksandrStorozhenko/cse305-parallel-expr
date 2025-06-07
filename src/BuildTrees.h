@@ -112,7 +112,7 @@ inline Node::Ptr sparseBin(unsigned depth, double sparsity, std::mt19937& g,
     if (sparsity <= 0.0) return perfectBin(depth, g, mixOps, fixedOp); // perfect
     if (sparsity >= 1.0) {
         bool leftHeavy = std::uniform_int_distribution<int>(0, 1)(g);
-        return longSkewed(depth, g, mixOps, fixedOp, leftHeavy); // chain
+        return longSkewed(depth, g, mixOps, fixedOp, leftHeavy);
     }
     if (depth == 0) return std::make_shared<ValueNode>(randLeaf(g));
 
@@ -149,6 +149,55 @@ inline Node::Ptr sparseBin(unsigned depth, double sparsity, std::mt19937& g,
         return n;
     };
     return build(depth);
+}
+
+inline Node::Ptr fibonacciTree(unsigned n, std::mt19937& g, bool mixOps = true, char fixedOp = '+')
+{
+    if (n == 0 || n == 1) {
+        return std::make_shared<ValueNode>(randLeaf(g));
+    }
+    auto l = fibonacciTree(n - 1, g, mixOps, fixedOp);
+    auto r = fibonacciTree(n - 2, g, mixOps, fixedOp);
+    auto nPtr = makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
+    link(nPtr, l); link(nPtr, r);
+    return nPtr;
+}
+
+inline Node::Ptr alternatingLeftHeavy(unsigned depth, std::mt19937& g)
+{
+    if (depth == 0) return std::make_shared<ValueNode>(randLeaf(g));
+    static const char ops[3] = {'+', '*', '/'};
+    char op = ops[depth % 3];
+    auto left = alternatingLeftHeavy(depth - 1, g);
+    auto right = std::make_shared<ValueNode>(randLeaf(g));
+    auto n = makeOp(op, left, right);
+    link(n, left); link(n, right);
+    return n;
+}
+
+inline Node::Ptr zigZagTree(unsigned depth, std::mt19937& g, bool left = true)
+{
+    if (depth == 0) return std::make_shared<ValueNode>(randLeaf(g));
+    auto deep = zigZagTree(depth - 1, g, !left);
+    auto leaf = std::make_shared<ValueNode>(randLeaf(g));
+    Node::Ptr l = left ? deep : leaf;
+    Node::Ptr r = left ? leaf : deep;
+    auto n = makeOp(pickOp(g), l, r);
+    link(n, l); link(n, r);
+    return n;
+}
+
+inline Node::Ptr midDensityTree(unsigned depth, std::mt19937& g, bool mixOps = true, char fixedOp = '+')
+{
+    if (depth == 0) return std::make_shared<ValueNode>(randLeaf(g));
+    bool skewLeft = std::bernoulli_distribution(0.6)(g);
+    unsigned lDepth = skewLeft ? depth - 1 : std::uniform_int_distribution<unsigned>(0, depth - 1)(g);
+    unsigned rDepth = skewLeft ? std::uniform_int_distribution<unsigned>(0, depth - 1)(g) : depth - 1;
+    auto l = midDensityTree(lDepth, g, mixOps, fixedOp);
+    auto r = midDensityTree(rDepth, g, mixOps, fixedOp);
+    auto n = makeOp(mixOps ? pickOp(g) : fixedOp, l, r);
+    link(n, l); link(n, r);
+    return n;
 }
 
 }
