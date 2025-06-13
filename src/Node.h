@@ -31,10 +31,6 @@ protected:
     virtual void on_rake_right(double) = 0;
 
     // helpers for race‐free contraction
-    bool singleChildIsDone() const {
-        Ptr son = left ? left : right;
-        return son && son->isDone();
-    }
     bool readyToRake() const noexcept { return value.has_value(); }
 
 public:
@@ -95,7 +91,7 @@ public:
             p->num_children.fetch_sub(1);
             done.store(true);
         }
-        else if (num_children.load() == 1 && singleChildIsDone() && !parent.expired() && parent.lock()->num_children.load() == 1) {
+        else if (num_children.load() == 1 && !parent.expired() && parent.lock()->num_children.load() == 1) {
             auto p = parent.lock();
             if(!p)
                 return;
