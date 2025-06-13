@@ -41,6 +41,7 @@ static double runTreeContraction(const Node::Ptr& root,
     std::mt19937 rng(seed ? seed : 0x9e3779b97f4a7c15ULL);
     if (nodes.size() > 1)
         std::shuffle(nodes.begin() + 1, nodes.end(), rng);
+    std::cout<<"threads = "<<threads<<std::endl;
     TreeContraction::TreeContract(nodes, root, threads, pool);
     pool.waitIdle();
     return root->value ? *root->value : root->compute();
@@ -75,19 +76,20 @@ int main(int argc, char* argv[])
     using TreeGen = std::function<Node::Ptr(unsigned, std::mt19937&)>;
 
     std::vector<std::pair<std::string, TreeGen>> treeGenerators = {
-        {"perfectBin", [](unsigned d, std::mt19937& g) { return bench::perfectBin(d, g); }},
-        {"randomBalanced", [](unsigned d, std::mt19937& g) { return bench::randomBalanced(d, g); }},
-        {"longSkewed", [](unsigned d, std::mt19937& g) { return bench::longSkewed(d, g); }},
-        {"fibonacciTree", [](unsigned d, std::mt19937& g) { return bench::fibonacciTree(d, g); }},
-        {"alternatingLeftHeavy", [](unsigned d, std::mt19937& g) { return bench::alternatingLeftHeavy(d, g); }},
-        {"zigZagTree", [](unsigned d, std::mt19937& g) { return bench::zigZagTree(d, g); }},
-        {"midDensityTree", [](unsigned d, std::mt19937& g) { return bench::midDensityTree(d, g); }},
-    };
+        // {"perfectBin", [](unsigned d, std::mt19937& g) { return bench::perfectBin(d, g); }},
+        // {"randomBalanced", [](unsigned d, std::mt19937& g) { return bench::randomBalanced(d, g); }},
+        // {"longSkewed", [](unsigned d, std::mt19937& g) { return bench::longSkewed(d, g); }},
+        // {"fibonacciTree", [](unsigned d, std::mt19937& g) { return bench::fibonacciTree(d, g); }},
+        // {"alternatingLeftHeavy", [](unsigned d, std::mt19937& g) { return bench::alternatingLeftHeavy(d, g); }},
+        // {"zigZagTree", [](unsigned d, std::mt19937& g) { return bench::zigZagTree(d, g); }},
+        // {"midDensityTree", [](unsigned d, std::mt19937& g) { return bench::midDensityTree(d, g); }},
+        {"randomFixedSize", [](unsigned d, std::mt19937& g) { return bench::randomFixedSizeTree(d, g); }}
+        };
 
     for (unsigned t : threadCounts) {
         SimplePool pool(t);
         for (const auto& [name, makeTree] : treeGenerators) {
-            for (unsigned d = 1; d <= 20; ++d) {
+            for (unsigned d = 2; d <= 10; ++d) {
                 unsigned long seed = master();
                 std::mt19937 baseRng(seed);
                 Node::Ptr sample = makeTree(d, baseRng);
@@ -131,7 +133,8 @@ int main(int argc, char* argv[])
                           << n_nodes << ','
                           << base_us << ','
                           << contr_us << ','
-                          << speedup << '\n';
+                          << speedup <<
+                          std::endl;
             }
         }
         pool.stop();

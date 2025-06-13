@@ -200,5 +200,33 @@ inline Node::Ptr midDensityTree(unsigned depth, std::mt19937& g, bool mixOps = t
     return n;
 }
 
+Node::Ptr randomFixedSizeTree(unsigned depth, std::mt19937& rng) {
+    unsigned N = 1<<depth;
+    assert(N >= 1);
+    std::vector<Node::Ptr> nodes;
+    for (unsigned i = 0; i < N; ++i) {
+        nodes.push_back(std::make_shared<ValueNode>(rng() % 10 + 1)); // random values 1-100
+    }
+
+    std::uniform_int_distribution<int> opDist(0, 2);
+    std::vector<Node::Ptr> pool = nodes;
+    // std::cout<<"Building random fixed tree"<<std::endl;
+    while (pool.size() > 1) {
+        std::shuffle(pool.begin(), pool.end(), rng);
+        auto left = pool.back(); pool.pop_back();
+        auto right = pool.back(); pool.pop_back();
+
+        Node::Ptr parent;
+        switch (opDist(rng)) {
+            case 0: parent = std::make_shared<PlusNode>(left, right); break;
+            case 1: parent = std::make_shared<MultiplyNode>(left, right); break;
+            case 2: parent = std::make_shared<DivideNode>(left, right); break;
+        }
+
+        pool.push_back(parent);
+    }
+    return pool.front(); // root node
+}
+
 }
 #endif
