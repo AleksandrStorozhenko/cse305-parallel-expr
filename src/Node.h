@@ -79,7 +79,9 @@ public:
     {
         if (done.load()) return;
 
+        std::cout<<"Node ="<<this<<"has num_children = "<<num_children<<std::endl;
         if (num_children.load() == 0 && readyToRake() && !parent.expired()) {
+            std::cout<<"Raking "<<this<<std::endl;
             auto p = parent.lock();
             if(!p)
                 return;
@@ -96,6 +98,8 @@ public:
             done.store(true);
         }
         else if (num_children.load() == 1 && singleChildIsDone() && !parent.expired() && parent.lock()->num_children.load() == 1) {
+            std::cout<<"Compacting "<<this<<std::endl;
+
             auto p = parent.lock();
             if(!p)
                 return;

@@ -14,7 +14,7 @@ public:
         for (std::size_t i = st; i < en; ++i){
             if (nodes[i] && !nodes[i]->isDone()){
                 nodes[i]->contract();
-                std::cout<<"Node i = "<<i<<" not done"<<std::endl;
+                // std::cout<<"Node i = "<<i<<" not done"<<std::endl;
             }
             ltch.count_down();
         }
