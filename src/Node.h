@@ -79,7 +79,7 @@ public:
     {
         if (done.load()) return;
 
-        std::cout<<"Node ="<<this<<"has num_children = "<<num_children<<std::endl;
+        std::cout<<"Node ="<<this<<" has num_children = "<<num_children<<" value = ?"<<value.has_value()<<" rake? "<<readyToRake()<<" parent is?"<<parent.expired()<<std::endl;
         if (num_children.load() == 0 && readyToRake() && !parent.expired()) {
             std::cout<<"Raking "<<this<<std::endl;
             auto p = parent.lock();

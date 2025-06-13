@@ -217,11 +217,14 @@ Node::Ptr randomFixedSizeTree(unsigned depth, std::mt19937& rng) {
         auto right = pool.back(); pool.pop_back();
 
         Node::Ptr parent;
-        switch (opDist(rng)) {
-            case 0: parent = std::make_shared<PlusNode>(left, right); break;
-            case 1: parent = std::make_shared<MultiplyNode>(left, right); break;
-            case 2: parent = std::make_shared<DivideNode>(left, right); break;
-        }
+        parent = std::make_shared<PlusNode>(left, right);
+        left->set_parent(parent);
+        right->set_parent(parent);
+        // switch (opDist(rng)) {
+        //     case 0: parent = std::make_shared<PlusNode>(left, right); break;
+        //     // case 1: parent = std::make_shared<MultiplyNode>(left, right); break;
+        //     // case 2: parent = std::make_shared<DivideNode>(left, right); break;
+        // }
 
         pool.push_back(parent);
     }
