@@ -27,10 +27,10 @@ public:
     {
         int n = static_cast<int>(nodes.size());
         int stride = n / num_threads + 1;
-        std::cout<<"Starting tree contract with n ="<<n<<" num_t = "<<num_threads<<std::endl;
+        // std::cout<<"Starting tree contract with n ="<<n<<" num_t = "<<num_threads<<std::endl;
         while (root->degree() > 0) {
             std::latch ltch(n);
-            std::cout<<"Root deg = "<<root->degree()<<std::endl;
+            // std::cout<<"Root deg = "<<root->degree()<<std::endl;
             for (int i = 0; i < n; i += stride)
                 pool.push(schedule_contract,
                           std::cref(nodes),

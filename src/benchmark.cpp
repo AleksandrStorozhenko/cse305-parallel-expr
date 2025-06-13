@@ -41,7 +41,7 @@ static double runTreeContraction(const Node::Ptr& root,
     std::mt19937 rng(seed ? seed : 0x9e3779b97f4a7c15ULL);
     if (nodes.size() > 1)
         std::shuffle(nodes.begin() + 1, nodes.end(), rng);
-    std::cout<<"threads = "<<threads<<std::endl;
+    // std::cout<<"threads = "<<thresads<<std::endl;
     TreeContraction::TreeContract(nodes, root, threads, pool);
     pool.waitIdle();
     return root->value ? *root->value : root->compute();
@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
     for (unsigned t : threadCounts) {
         SimplePool pool(t);
         for (const auto& [name, makeTree] : treeGenerators) {
-            for (unsigned d = 2; d <= 10; ++d) {
+            for (unsigned d = 2; d <= 20; ++d) {
                 unsigned long seed = master();
                 std::mt19937 baseRng(seed);
                 Node::Ptr sample = makeTree(d, baseRng);
